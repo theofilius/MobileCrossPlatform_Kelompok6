@@ -30,6 +30,20 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="pertolongan-pertama"
+        options={{
+          title: 'First Aid',
+          tabBarButton: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="bencana-alam"
+        options={{
+          title: 'Disasters',
+          tabBarButton: () => null,
+        }}
+      />
     </Tabs>
   );
 }

@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
@@ -8,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  const router = useRouter();
   const pulse = useSharedValue(1);
   const [isVolunteer, setIsVolunteer] = useState(false);
 
@@ -113,12 +115,18 @@ export default function HomeScreen() {
               <Ionicons name="arrow-forward" size={16} color="#003B71" />
             </View>
 
-            <TouchableOpacity style={styles.pillButton}>
+            <TouchableOpacity 
+              style={styles.pillButton}
+              onPress={() => router.push('/(tabs)/pertolongan-pertama')}
+            >
               <Text style={styles.pillButtonText}>Pertolongan pertama</Text>
               <Ionicons name="chevron-forward-circle-outline" size={20} color="#FFFFFF" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.pillButton}>
+            <TouchableOpacity 
+              style={styles.pillButton}
+              onPress={() => router.push('/(tabs)/bencana-alam')}
+            >
               <Text style={styles.pillButtonText}>Bencana Alam</Text>
               <Ionicons name="chevron-forward-circle-outline" size={20} color="#FFFFFF" />
             </TouchableOpacity>
