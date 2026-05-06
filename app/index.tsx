@@ -1,13 +1,29 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import React, { useContext, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, ActivityIndicator } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AuthContext } from './context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { user, isLoading } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace('/(tabs)' as any);
+    }
+  }, [user, isLoading]);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#003B71" />
+      </View>
+    );
+  }
 
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>

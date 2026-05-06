@@ -1,16 +1,37 @@
-import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleNext = () => {
-    // In Figma, Next goes to Phone Number/Complete Account screen.
-    // For now we navigate to tabs.
-    router.replace('/(tabs)');
+    if (!name.trim()) {
+      Alert.alert('Validation', 'Please enter your full name.');
+      return;
+    }
+    if (!email.trim()) {
+      Alert.alert('Validation', 'Please enter your email.');
+      return;
+    }
+    if (!password.trim()) {
+      Alert.alert('Validation', 'Please enter a password.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Validation', 'Passwords do not match.');
+      return;
+    }
+    router.replace({
+      pathname: '/complete-account',
+      params: { name }
+    } as any);
   };
 
   return (
@@ -32,6 +53,8 @@ export default function SignUpScreen() {
                 style={styles.input} 
                 placeholder="Full Name" 
                 placeholderTextColor="#8D8E8E"
+                value={name}
+                onChangeText={setName}
               />
               <TextInput 
                 style={styles.input} 
@@ -39,18 +62,24 @@ export default function SignUpScreen() {
                 placeholderTextColor="#8D8E8E"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
               />
               <TextInput 
                 style={styles.input} 
                 placeholder="Password" 
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
+                value={password}
+                onChangeText={setPassword}
               />
               <TextInput 
                 style={styles.input} 
                 placeholder="Confirm Password" 
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
               />
 
               <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
@@ -79,7 +108,7 @@ export default function SignUpScreen() {
                   <FontAwesome5 name="facebook" size={24} color="#1877F2" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.socialIcon}>
-                  <AntDesign name="apple1" size={24} color="#000" />
+                  <AntDesign name="apple" size={24} color="#000" />
                 </TouchableOpacity>
               </View>
             </View>

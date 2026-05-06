@@ -1,14 +1,34 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState, useContext } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AuthContext } from './context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useContext(AuthContext);
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
+  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    if (loginMethod === 'email') {
+      if (!email.trim() || !password.trim()) {
+        Alert.alert('Validation', 'Please enter your email and password.');
+        return;
+      }
+      // Use email username part as display name
+      const displayName = email.split('@')[0];
+      await login({ name: displayName, phone: '' });
+    } else {
+      if (!phoneNumber.trim() || !password.trim()) {
+        Alert.alert('Validation', 'Please enter your phone number and password.');
+        return;
+      }
+      await login({ name: phoneNumber, phone: phoneNumber });
+    }
     // Navigasi ke location permission sesuai flow
     router.replace('/location-permission' as any);
   };
@@ -36,21 +56,37 @@ export default function LoginScreen() {
                     placeholderTextColor="#8D8E8E"
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
                   />
                   <TextInput 
                     style={styles.input} 
                     placeholder="Password" 
                     placeholderTextColor="#8D8E8E"
                     secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
                   />
                 </>
               ) : (
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Phone Number" 
-                  placeholderTextColor="#8D8E8E"
-                  keyboardType="phone-pad"
-                />
+                <>
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Phone Number" 
+                    placeholderTextColor="#8D8E8E"
+                    keyboardType="phone-pad"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                  />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Password" 
+                    placeholderTextColor="#8D8E8E"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                </>
               )}
 
               <View style={styles.toggleContainer}>

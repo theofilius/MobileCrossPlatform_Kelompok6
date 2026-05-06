@@ -1,17 +1,61 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
+import { AuthContext } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const pulse = useSharedValue(1);
   const [isVolunteer, setIsVolunteer] = useState(false);
+  const [locationName, setLocationName] = useState('Fetching location...');
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
+    let locationSubscription: Location.LocationSubscription | null = null;
+
+    (async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setLocationName('Permission denied');
+          return;
+        }
+
+        // Start watching position
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 10,
+          },
+          async (location) => {
+            try {
+              let geocode = await Location.reverseGeocodeAsync({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude
+              });
+
+              if (geocode.length > 0) {
+                const place = geocode[0];
+                setLocationName(`${place.city || place.subregion}, ${place.region}`);
+              } else {
+                setLocationName('Location found, name unavailable');
+              }
+            } catch (err) {
+              // Ignore reverse geocode errors during movement
+            }
+          }
+        );
+      } catch (error) {
+        setLocationName('Error fetching location');
+      }
+    })();
+
     pulse.value = withRepeat(
       withSequence(
         withTiming(1.05, { duration: 1000 }),
@@ -20,6 +64,12 @@ export default function HomeScreen() {
       -1,
       true
     );
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -43,7 +93,7 @@ export default function HomeScreen() {
                 <Text style={styles.locationTitle}>Current location</Text>
                 <View style={styles.locationRow}>
                   <Ionicons name="location-sharp" size={12} color="#000" />
-                  <Text style={styles.locationText}>Tangerang, Gading Serpong</Text>
+                  <Text style={styles.locationText}>{locationName}</Text>
                 </View>
               </View>
             </View>
@@ -54,7 +104,7 @@ export default function HomeScreen() {
 
           {/* Welcome Banner */}
           <View style={styles.bannerContainer}>
-            <Text style={styles.bannerTitle}>Welcome, Lionel Manatap !</Text>
+            <Text style={styles.bannerTitle}>Welcome, {user?.name || 'User'} !</Text>
             <View style={styles.bannerContentRow}>
               <View style={styles.bannerTextCol}>
                 <Text style={styles.bannerDesc}>
