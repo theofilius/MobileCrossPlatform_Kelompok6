@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -17,7 +18,7 @@ export default function ProfileScreen() {
 
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           {/* Header Profile Section */}
@@ -31,23 +32,23 @@ export default function ProfileScreen() {
 
           {/* Menu Options */}
           <View style={styles.menuContainer}>
-            <Text style={styles.sectionTitle}>Account Settings</Text>
-            
-            <MenuOption 
-              icon="account-outline" 
-              title="Personal Information" 
+            <Text style={styles.sectionTitle}>Pengaturan Akun</Text>
+
+            <MenuOption
+              icon="account-outline"
+              title="Informasi Pribadi"
               onPress={() => router.push('/personal-info' as any)}
             />
-            <MenuOption icon="contacts-outline" title="Emergency Contacts" iconColor="#EF4444" />
-            <MenuOption icon="bell-outline" title="Notifications" />
-            <MenuOption icon="shield-outline" title="Privacy & Security" />
-            <MenuOption icon="help-circle-outline" title="Help & Support" />
+            <MenuOption icon="contacts-outline" title="Kontak Darurat" iconColor="#EF4444" />
+            <MenuOption icon="bell-outline" title="Notifikasi" />
+            <MenuOption icon="shield-outline" title="Privasi & Keamanan" />
+            <MenuOption icon="help-circle-outline" title="Bantuan & Dukungan" />
           </View>
 
           {/* Logout Button */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={20} color="#EF4444" />
-            <Text style={styles.logoutText}>Log Out</Text>
+            <Text style={styles.logoutText}>Keluar</Text>
           </TouchableOpacity>
 
         </ScrollView>
@@ -79,7 +80,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 40,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   headerSection: {
     alignItems: 'center',

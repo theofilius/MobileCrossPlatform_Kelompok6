@@ -1,81 +1,95 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleNext = () => {
     if (!name.trim()) {
-      Alert.alert('Validation', 'Please enter your full name.');
+      Alert.alert('Validasi', 'Masukkan nama lengkap kamu.');
       return;
     }
     if (!email.trim()) {
-      Alert.alert('Validation', 'Please enter your email.');
+      Alert.alert('Validasi', 'Masukkan alamat email kamu.');
+      return;
+    }
+    if (!phone.trim()) {
+      Alert.alert('Validasi', 'Masukkan nomor telepon kamu.');
       return;
     }
     if (!password.trim()) {
-      Alert.alert('Validation', 'Please enter a password.');
+      Alert.alert('Validasi', 'Masukkan kata sandi kamu.');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Validation', 'Passwords do not match.');
+      Alert.alert('Validasi', 'Kata sandi tidak cocok.');
       return;
     }
-    router.replace({
-      pathname: '/complete-account',
-      params: { name }
+    router.push({
+      pathname: '/otp',
+      params: { name, phone },
     } as any);
   };
 
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView 
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            
+
             <View style={styles.header}>
-              <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Create an account so you can explore all the{'\n'}existing jobs</Text>
+              <Text style={styles.title}>Buat Akun</Text>
+              <Text style={styles.subtitle}>Daftarkan diri agar kontak darurat kamu{'\n'}dapat dihubungi saat dibutuhkan</Text>
             </View>
 
             <View style={styles.form}>
-              <TextInput 
-                style={styles.input} 
-                placeholder="Full Name" 
+              <TextInput
+                style={styles.input}
+                placeholder="Nama Lengkap"
                 placeholderTextColor="#8D8E8E"
                 value={name}
                 onChangeText={setName}
               />
-              <TextInput 
-                style={styles.input} 
-                placeholder="Email" 
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
                 placeholderTextColor="#8D8E8E"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
                 onChangeText={setEmail}
               />
-              <TextInput 
-                style={styles.input} 
-                placeholder="Password" 
+              <TextInput
+                style={styles.input}
+                placeholder="Nomor Telepon"
+                placeholderTextColor="#8D8E8E"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Kata Sandi"
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
               />
-              <TextInput 
-                style={styles.input} 
-                placeholder="Confirm Password" 
+              <TextInput
+                style={styles.input}
+                placeholder="Konfirmasi Kata Sandi"
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
                 value={confirmPassword}
@@ -83,12 +97,12 @@ export default function SignUpScreen() {
               />
 
               <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                <Text style={styles.nextButtonText}>Next</Text>
+                <Text style={styles.nextButtonText}>Lanjutkan</Text>
               </TouchableOpacity>
 
               <Link href="/login" asChild>
                 <TouchableOpacity style={styles.loginLinkButton}>
-                  <Text style={styles.loginLinkText}>Already have an account</Text>
+                  <Text style={styles.loginLinkText}>Sudah punya akun? Masuk</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -96,10 +110,10 @@ export default function SignUpScreen() {
             <View style={styles.socialSection}>
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
-                <Text style={styles.dividerText}>Or login with</Text>
+                <Text style={styles.dividerText}>Atau daftar dengan</Text>
                 <View style={styles.divider} />
               </View>
-              
+
               <View style={styles.socialButtons}>
                 <TouchableOpacity style={styles.socialIcon}>
                   <AntDesign name="google" size={24} color="#000" />
@@ -112,7 +126,7 @@ export default function SignUpScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-            
+
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -121,60 +135,52 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  keyboardView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 32,
-    paddingTop: 60,
+    paddingTop: 48,
     paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
     color: '#003B71',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   subtitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#003B71',
+    color: '#4A6B8A',
     textAlign: 'center',
     lineHeight: 20,
   },
-  form: {
-    flex: 1,
-  },
+  form: { flex: 1 },
   input: {
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 14,
     paddingHorizontal: 16,
-    height: 56,
-    fontSize: 16,
+    height: 52,
+    fontSize: 15,
     color: '#000000',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   nextButton: {
     backgroundColor: '#003B71',
-    borderRadius: 8,
-    height: 56,
+    borderRadius: 10,
+    height: 52,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 14,
     shadowColor: '#003B71',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -183,31 +189,25 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
   },
   loginLinkButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    height: 56,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#003B71',
     marginBottom: 32,
   },
   loginLinkText: {
     color: '#003B71',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  socialSection: {
-    marginTop: 'auto',
-  },
+  socialSection: { marginTop: 'auto' },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   divider: {
     flex: 1,
@@ -215,10 +215,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1D5DB',
   },
   dividerText: {
-    marginHorizontal: 16,
-    color: '#003B71',
-    fontSize: 14,
-    fontWeight: '600',
+    marginHorizontal: 14,
+    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '500',
   },
   socialButtons: {
     flexDirection: 'row',

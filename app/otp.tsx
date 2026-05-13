@@ -61,8 +61,8 @@ export default function OTPScreen() {
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             
             <View style={styles.header}>
-              <Text style={styles.title}>Verify It's You!</Text>
-              <Text style={styles.subtitle}>We Sent You A Message! Please Check Your{'\n'}Mail And Complete OTP Code</Text>
+              <Text style={styles.title}>Verifikasi Identitas</Text>
+              <Text style={styles.subtitle}>Kami mengirimkan kode OTP ke nomor kamu.{'\n'}Masukkan 4 digit di bawah ini.</Text>
             </View>
 
             <View style={styles.form}>
@@ -83,7 +83,7 @@ export default function OTPScreen() {
               </View>
 
               <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-                <Text style={styles.confirmButtonText}>Confirm</Text>
+                <Text style={styles.confirmButtonText}>Konfirmasi</Text>
               </TouchableOpacity>
             </View>
             

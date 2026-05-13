@@ -1,13 +1,19 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
+import { FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from './context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useContext(AuthContext);
+  const { login, user } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (user) {
+      router.replace('/(tabs)' as any);
+    }
+  }, [user]);
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -127,7 +133,7 @@ export default function LoginScreen() {
                 <Text style={styles.dividerText}>Or login with</Text>
                 <View style={styles.divider} />
               </View>
-              
+
               <View style={styles.socialButtons}>
                 <TouchableOpacity style={styles.socialIcon}>
                   <AntDesign name="google" size={24} color="#000" />
@@ -139,6 +145,13 @@ export default function LoginScreen() {
                   <AntDesign name="apple" size={24} color="#000" />
                 </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                style={styles.guestButton}
+                onPress={() => router.push('/location-permission' as any)}
+              >
+                <Text style={styles.guestButtonText}>Continue as a guest</Text>
+              </TouchableOpacity>
             </View>
             
           </ScrollView>
@@ -294,5 +307,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  guestButton: {
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  guestButtonText: {
+    color: '#003B71',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

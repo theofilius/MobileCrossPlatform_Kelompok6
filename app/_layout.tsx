@@ -18,11 +18,10 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="signup" options={{ headerShown: false }} />
-          <Stack.Screen name="complete-account" options={{ headerShown: false }} />
           <Stack.Screen name="otp" options={{ headerShown: false }} />
           <Stack.Screen name="location-permission" options={{ headerShown: false }} />
-          <Stack.Screen name="loading" options={{ headerShown: false }} />
           <Stack.Screen name="personal-info" options={{ headerShown: false }} />
+          <Stack.Screen name="emergency-active" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
