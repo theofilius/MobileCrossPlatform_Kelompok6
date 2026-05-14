@@ -39,6 +39,11 @@ export default function ProfileScreen() {
               title="Informasi Pribadi"
               onPress={() => router.push('/personal-info' as any)}
             />
+            <MenuOption
+              icon="clipboard-list-outline"
+              title="Riwayat Laporan"
+              onPress={() => router.push('/report-history' as any)}
+            />
             <MenuOption icon="contacts-outline" title="Kontak Darurat" iconColor="#EF4444" />
             <MenuOption icon="bell-outline" title="Notifikasi" />
             <MenuOption icon="shield-outline" title="Privasi & Keamanan" />
