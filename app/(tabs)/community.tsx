@@ -11,9 +11,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../context/LanguageContext';
+import { TranslationKey } from '../../translations';
 import {
   EMERGENCY_COLORS,
-  EMERGENCY_LABELS,
   EmergencyType,
   Report,
   getReports,
@@ -21,20 +22,29 @@ import {
 
 type FilterType = 'all' | EmergencyType;
 
-const FILTERS: { key: FilterType; label: string }[] = [
-  { key: 'all', label: 'Semua' },
-  { key: 'fire', label: 'Kebakaran' },
-  { key: 'accident', label: 'Kecelakaan' },
-  { key: 'crime', label: 'Kriminalitas' },
-  { key: 'disaster', label: 'Bencana' },
-  { key: 'medical', label: 'Medis' },
-  { key: 'other', label: 'Lainnya' },
+const FILTERS: { key: FilterType; labelKey: TranslationKey }[] = [
+  { key: 'all', labelKey: 'community_all' },
+  { key: 'fire', labelKey: 'type_fire' },
+  { key: 'accident', labelKey: 'type_accident' },
+  { key: 'crime', labelKey: 'type_crime' },
+  { key: 'disaster', labelKey: 'type_disaster' },
+  { key: 'medical', labelKey: 'type_medical' },
+  { key: 'other', labelKey: 'type_other' },
 ];
 
-const STATUS_LABEL: Record<Report['status'], string> = {
-  pending: 'Menunggu',
-  responded: 'Ditangani',
-  resolved: 'Selesai',
+const STATUS_KEY: Record<Report['status'], TranslationKey> = {
+  pending: 'status_pending',
+  responded: 'status_responded',
+  resolved: 'status_resolved',
+};
+
+const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
+  fire: 'type_fire',
+  accident: 'type_accident',
+  crime: 'type_crime',
+  disaster: 'type_disaster',
+  medical: 'type_medical',
+  other: 'type_other',
 };
 
 const STATUS_COLOR: Record<Report['status'], string> = {
@@ -63,6 +73,7 @@ function formatTimeAgo(date: Date): string {
 }
 
 function ReportCard({ report, onPress }: { report: Report; onPress: () => void }) {
+  const { t } = useLanguage();
   const color = EMERGENCY_COLORS[report.type];
   const { icon } = TYPE_ICON[report.type];
 
@@ -73,11 +84,11 @@ function ReportCard({ report, onPress }: { report: Report; onPress: () => void }
         <View style={styles.cardHeader}>
           <View style={[styles.typeBadge, { backgroundColor: color + '18' }]}>
             <MaterialCommunityIcons name={icon as any} size={13} color={color} />
-            <Text style={[styles.typeLabel, { color }]}>{EMERGENCY_LABELS[report.type]}</Text>
+            <Text style={[styles.typeLabel, { color }]}>{t(TYPE_KEY[report.type])}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[report.status] + '18' }]}>
             <Text style={[styles.statusLabel, { color: STATUS_COLOR[report.status] }]}>
-              {STATUS_LABEL[report.status]}
+              {t(STATUS_KEY[report.status])}
             </Text>
           </View>
         </View>
@@ -100,6 +111,7 @@ function ReportCard({ report, onPress }: { report: Report; onPress: () => void }
 
 export default function CommunityScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [filter, setFilter] = useState<FilterType>('all');
   const [reports, setReports] = useState<Report[]>([]);
 
@@ -116,8 +128,8 @@ export default function CommunityScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>Komunitas</Text>
-            <Text style={styles.headerSub}>Laporan kejadian di sekitarmu</Text>
+            <Text style={styles.headerTitle}>{t('community_title')}</Text>
+            <Text style={styles.headerSub}>{t('community_sub')}</Text>
           </View>
           <TouchableOpacity
             style={styles.chatBtn}
@@ -141,7 +153,7 @@ export default function CommunityScreen() {
               onPress={() => setFilter(f.key)}
             >
               <Text style={[styles.filterLabel, filter === f.key && styles.filterLabelActive]}>
-                {f.label}
+                {t(f.labelKey)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -162,8 +174,8 @@ export default function CommunityScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyText}>Belum ada laporan</Text>
-              <Text style={styles.emptySub}>Laporan dari komunitas akan muncul di sini</Text>
+              <Text style={styles.emptyText}>{t('community_empty')}</Text>
+              <Text style={styles.emptySub}>{t('community_empty_sub')}</Text>
             </View>
           }
         />

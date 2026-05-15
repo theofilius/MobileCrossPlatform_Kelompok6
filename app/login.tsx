@@ -1,13 +1,15 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { FontAwesome5, AntDesign } from '@expo/vector-icons';
+import { FontAwesome5, AntDesign, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, user } = useContext(AuthContext);
+  const { t, language, setLanguage } = useLanguage();
 
   useEffect(() => {
     if (user) {
@@ -22,22 +24,22 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (loginMethod === 'email') {
       if (!email.trim() || !password.trim()) {
-        Alert.alert('Validation', 'Please enter your email and password.');
+        Alert.alert('!', t('login_validation_email'));
         return;
       }
-      // Use email username part as display name
       const displayName = email.split('@')[0];
       await login({ name: displayName, phone: '' });
     } else {
       if (!phoneNumber.trim() || !password.trim()) {
-        Alert.alert('Validation', 'Please enter your phone number and password.');
+        Alert.alert('!', t('login_validation_phone'));
         return;
       }
       await login({ name: phoneNumber, phone: phoneNumber });
     }
-    // Navigasi ke location permission sesuai flow
     router.replace('/location-permission' as any);
   };
+
+  const toggleLang = () => setLanguage(language === 'id' ? 'en' : 'id');
 
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>
@@ -47,27 +49,33 @@ export default function LoginScreen() {
           style={styles.keyboardView}
         >
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            
+
+            {/* Language toggle */}
+            <TouchableOpacity style={styles.langToggle} onPress={toggleLang}>
+              <Ionicons name="language" size={14} color="#003B71" />
+              <Text style={styles.langToggleText}>{language === 'id' ? 'ID' : 'EN'}</Text>
+            </TouchableOpacity>
+
             <View style={styles.header}>
-              <Text style={styles.title}>Login here</Text>
-              <Text style={styles.subtitle}>Welcome back you've{'\n'}been missed!</Text>
+              <Text style={styles.title}>{t('login_title')}</Text>
+              <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
             </View>
 
             <View style={styles.form}>
               {loginMethod === 'email' ? (
                 <>
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Email" 
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('login_email_ph')}
                     placeholderTextColor="#8D8E8E"
                     keyboardType="email-address"
                     autoCapitalize="none"
                     value={email}
                     onChangeText={setEmail}
                   />
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Password" 
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('login_password_ph')}
                     placeholderTextColor="#8D8E8E"
                     secureTextEntry
                     value={password}
@@ -76,17 +84,17 @@ export default function LoginScreen() {
                 </>
               ) : (
                 <>
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Phone Number" 
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('login_phone_ph')}
                     placeholderTextColor="#8D8E8E"
                     keyboardType="phone-pad"
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
                   />
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Password" 
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('login_password_ph')}
                     placeholderTextColor="#8D8E8E"
                     secureTextEntry
                     value={password}
@@ -96,33 +104,33 @@ export default function LoginScreen() {
               )}
 
               <View style={styles.toggleContainer}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.toggleButton, loginMethod === 'email' && styles.toggleButtonActive]}
                   onPress={() => setLoginMethod('email')}
                 >
-                  <Text style={[styles.toggleText, loginMethod === 'email' && styles.toggleTextActive]}>Email</Text>
+                  <Text style={[styles.toggleText, loginMethod === 'email' && styles.toggleTextActive]}>{t('login_email_tab')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.toggleButton, loginMethod === 'phone' && styles.toggleButtonActive]}
                   onPress={() => setLoginMethod('phone')}
                 >
-                  <Text style={[styles.toggleText, loginMethod === 'phone' && styles.toggleTextActive]}>Phone Number</Text>
+                  <Text style={[styles.toggleText, loginMethod === 'phone' && styles.toggleTextActive]}>{t('login_phone_tab')}</Text>
                 </TouchableOpacity>
               </View>
 
               {loginMethod === 'email' && (
                 <TouchableOpacity style={styles.forgotPassword}>
-                  <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
+                  <Text style={styles.forgotPasswordText}>{t('login_forgot')}</Text>
                 </TouchableOpacity>
               )}
 
               <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                <Text style={styles.loginButtonText}>{loginMethod === 'email' ? 'Sign in' : 'Next'}</Text>
+                <Text style={styles.loginButtonText}>{t('login_btn')}</Text>
               </TouchableOpacity>
 
               <Link href="/signup" asChild>
                 <TouchableOpacity style={styles.createAccountButton}>
-                  <Text style={styles.createAccountText}>Create new account</Text>
+                  <Text style={styles.createAccountText}>{t('login_create')}</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -130,7 +138,7 @@ export default function LoginScreen() {
             <View style={styles.socialSection}>
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
-                <Text style={styles.dividerText}>Or login with</Text>
+                <Text style={styles.dividerText}>{t('login_or')}</Text>
                 <View style={styles.divider} />
               </View>
 
@@ -150,10 +158,10 @@ export default function LoginScreen() {
                 style={styles.guestButton}
                 onPress={() => router.push('/location-permission' as any)}
               >
-                <Text style={styles.guestButtonText}>Continue as a guest</Text>
+                <Text style={styles.guestButtonText}>{t('login_guest')}</Text>
               </TouchableOpacity>
             </View>
-            
+
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -176,6 +184,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 60,
     paddingBottom: 40,
+  },
+  langToggle: {
+    position: 'absolute',
+    top: 20,
+    right: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    zIndex: 10,
+  },
+  langToggleText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#003B71',
+    letterSpacing: 0.5,
   },
   header: {
     alignItems: 'center',

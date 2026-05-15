@@ -32,6 +32,11 @@ export default function RootLayout() {
             <Stack.Screen name="report-history" options={{ headerShown: false }} />
             <Stack.Screen name="report-detail" options={{ headerShown: false }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
+            <Stack.Screen name="emergency-contacts" options={{ headerShown: false }} />
+            <Stack.Screen name="notifications" options={{ headerShown: false }} />
+            <Stack.Screen name="privacy-security" options={{ headerShown: false }} />
+            <Stack.Screen name="help-support" options={{ headerShown: false }} />
+            <Stack.Screen name="responder-tracking" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>

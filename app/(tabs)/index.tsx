@@ -3,21 +3,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { getContactCount, subscribe as subscribeContacts } from '../../services/contactsService';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
   const pulse = useSharedValue(1);
-  const [isVolunteer, setIsVolunteer] = useState(false);
   const [locationName, setLocationName] = useState('Memuat lokasi...');
   const [isHolding, setIsHolding] = useState(false);
   const [holdCount, setHoldCount] = useState(3);
+  const [contactCount, setContactCount] = useState(getContactCount());
   const { user } = useContext(AuthContext);
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    return subscribeContacts(c => setContactCount(c.length));
+  }, []);
 
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,40 +101,44 @@ export default function HomeScreen() {
                 <MaterialCommunityIcons name="shield-cross" size={20} color="#0C4F8D" />
               </View>
               <View>
-                <Text style={styles.locationLabel}>Lokasi kamu</Text>
+                <Text style={styles.locationLabel}>{t('home_your_location')}</Text>
                 <View style={styles.locationRow}>
                   <Ionicons name="location-sharp" size={11} color="#003B71" />
                   <Text style={styles.locationText}>{locationName}</Text>
                 </View>
               </View>
             </View>
-            <TouchableOpacity style={styles.bellBtn}>
+            <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/notifications' as any)}>
               <Ionicons name="notifications-outline" size={22} color="#003B71" />
             </TouchableOpacity>
           </View>
 
           {/* Status Card */}
           <View style={styles.statusCard}>
-            <Text style={styles.greeting}>Halo, {user?.name || 'Pengguna'}!</Text>
+            <Text style={styles.greeting}>{t('signup_login') === 'Login' ? 'Hello' : 'Halo'}, {user?.name || '—'}!</Text>
             <View style={styles.statusRow}>
               <View style={[styles.statusChip, styles.chipGreen]}>
                 <View style={styles.greenDot} />
-                <Text style={styles.chipGreenText}>GPS Aktif</Text>
+                <Text style={styles.chipGreenText}>{t('home_gps')}</Text>
               </View>
-              <View style={[styles.statusChip, styles.chipBlue]}>
+              <TouchableOpacity
+                style={[styles.statusChip, styles.chipBlue]}
+                onPress={() => router.push('/emergency-contacts' as any)}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="people" size={12} color="#003B71" />
-                <Text style={styles.chipBlueText}>3 Kontak</Text>
-              </View>
+                <Text style={styles.chipBlueText}>{contactCount} {t('home_contacts')}</Text>
+              </TouchableOpacity>
               <View style={[styles.statusChip, styles.chipGreen]}>
                 <MaterialCommunityIcons name="shield-check" size={13} color="#16A34A" />
-                <Text style={styles.chipGreenText}>Terlindungi</Text>
+                <Text style={styles.chipGreenText}>{t('home_protected')}</Text>
               </View>
             </View>
           </View>
 
           {/* Emergency Card */}
           <View style={styles.emergencyCard}>
-            <Text style={styles.emergencyLabel}>TOMBOL DARURAT</Text>
+            <Text style={styles.emergencyLabel}>{t('home_emergency_label')}</Text>
 
             <View style={styles.sosContainer}>
               <View style={[styles.pulseOuter, isHolding && styles.pulseOuterHolding]}>
@@ -148,35 +159,22 @@ export default function HomeScreen() {
             </View>
 
             <Text style={[styles.sosHelper, isHolding && styles.sosHelperHolding]}>
-              {isHolding ? 'Lepaskan untuk membatalkan' : 'Tahan 3 detik untuk mengaktifkan SOS'}
+              {isHolding ? t('home_release_hint') : t('home_hold_hint')}
             </Text>
-
-            <View style={styles.volunteerRow}>
-              <View style={styles.volunteerLeft}>
-                <Text style={styles.volunteerTitle}>Jadilah Relawan</Text>
-                <Text style={styles.volunteerSubtitle}>Terima permintaan bantuan di sekitar kamu</Text>
-              </View>
-              <Switch
-                value={isVolunteer}
-                onValueChange={setIsVolunteer}
-                trackColor={{ false: '#D1D5DB', true: '#0C4F8D' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
           </View>
 
           {/* Learn More */}
           <View style={styles.learnSection}>
             <View style={styles.learnHeader}>
-              <Text style={styles.learnTitle}>Pelajari Lebih Lanjut</Text>
+              <Text style={styles.learnTitle}>{t('home_learn')}</Text>
               <Ionicons name="arrow-forward" size={14} color="#003B71" />
             </View>
             <TouchableOpacity style={styles.pill}>
-              <Text style={styles.pillText}>Pertolongan Pertama</Text>
+              <Text style={styles.pillText}>{t('home_first_aid')}</Text>
               <Ionicons name="chevron-forward-circle-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.pill}>
-              <Text style={styles.pillText}>Bencana Alam</Text>
+              <Text style={styles.pillText}>{t('home_disaster')}</Text>
               <Ionicons name="chevron-forward-circle-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>

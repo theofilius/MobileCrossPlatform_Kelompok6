@@ -5,18 +5,28 @@ import { Audio } from 'expo-av';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from './context/LanguageContext';
+import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,
-  EMERGENCY_LABELS,
   EmergencyType,
   Report,
   getReport,
 } from '../services/reportService';
 
-const STATUS_LABEL: Record<Report['status'], string> = {
-  pending: 'Menunggu Respons',
-  responded: 'Sedang Ditangani',
-  resolved: 'Selesai',
+const STATUS_KEY: Record<Report['status'], TranslationKey> = {
+  pending: 'status_pending_long',
+  responded: 'status_responded_long',
+  resolved: 'status_resolved_long',
+};
+
+const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
+  fire: 'type_fire',
+  accident: 'type_accident',
+  crime: 'type_crime',
+  disaster: 'type_disaster',
+  medical: 'type_medical',
+  other: 'type_other',
 };
 
 const STATUS_COLOR: Record<Report['status'], string> = {
@@ -40,8 +50,8 @@ const TYPE_ICON: Record<EmergencyType, string> = {
   other: 'alert-circle',
 };
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('id-ID', {
+function formatDate(date: Date, locale: string): string {
+  return date.toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -53,6 +63,7 @@ function formatDate(date: Date): string {
 
 export default function ReportDetailScreen() {
   const router = useRouter();
+  const { t, language } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [report, setReport] = useState<Report | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -102,9 +113,9 @@ export default function ReportDetailScreen() {
   if (!report) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.notFound}>Laporan tidak ditemukan</Text>
+        <Text style={styles.notFound}>{t('detail_not_found')}</Text>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backLink}>Kembali</Text>
+          <Text style={styles.backLink}>{t('detail_back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -121,7 +132,7 @@ export default function ReportDetailScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#003B71" />
           </TouchableOpacity>
-          <Text style={styles.title}>Detail Laporan</Text>
+          <Text style={styles.title}>{t('detail_title')}</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -131,13 +142,13 @@ export default function ReportDetailScreen() {
           <View style={[styles.typeBanner, { backgroundColor: color }]}>
             <MaterialCommunityIcons name={TYPE_ICON[report.type] as any} size={28} color="#FFFFFF" />
             <View>
-              <Text style={styles.bannerLabel}>Jenis Kejadian</Text>
-              <Text style={styles.bannerType}>{EMERGENCY_LABELS[report.type]}</Text>
+              <Text style={styles.bannerLabel}>{t('detail_type')}</Text>
+              <Text style={styles.bannerType}>{t(TYPE_KEY[report.type])}</Text>
             </View>
             <View style={styles.bannerSpacer} />
             <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
               <Ionicons name={STATUS_ICON[report.status] as any} size={13} color="#FFFFFF" />
-              <Text style={styles.statusBadgeText}>{STATUS_LABEL[report.status]}</Text>
+              <Text style={styles.statusBadgeText}>{t(STATUS_KEY[report.status])}</Text>
             </View>
           </View>
 
@@ -148,8 +159,8 @@ export default function ReportDetailScreen() {
                 <Ionicons name="location" size={20} color="#2563EB" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardLabel}>Lokasi Kejadian</Text>
-                <Text style={styles.cardValue}>{report.address || 'Lokasi tidak tersedia'}</Text>
+                <Text style={styles.cardLabel}>{t('detail_location')}</Text>
+                <Text style={styles.cardValue}>{report.address || t('detail_no_location')}</Text>
                 {report.latitude && report.longitude && (
                   <Text style={styles.coords}>
                     {report.latitude.toFixed(5)}, {report.longitude.toFixed(5)}
@@ -166,22 +177,22 @@ export default function ReportDetailScreen() {
                 <Ionicons name="time" size={20} color="#EA580C" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardLabel}>Waktu Laporan</Text>
-                <Text style={styles.cardValue}>{formatDate(report.createdAt)}</Text>
+                <Text style={styles.cardLabel}>{t('detail_time')}</Text>
+                <Text style={styles.cardValue}>{formatDate(report.createdAt, language)}</Text>
               </View>
             </View>
           </View>
 
           {/* Description */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Deskripsi Kejadian</Text>
+            <Text style={styles.sectionTitle}>{t('detail_desc')}</Text>
             <Text style={styles.description}>{report.description}</Text>
           </View>
 
           {/* Photo */}
           {report.photoUri && (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Foto Bukti</Text>
+              <Text style={styles.sectionTitle}>{t('detail_photo')}</Text>
               <Image source={{ uri: report.photoUri }} style={styles.photo} resizeMode="cover" />
             </View>
           )}
@@ -194,9 +205,9 @@ export default function ReportDetailScreen() {
                   <Ionicons name="mic" size={20} color="#059669" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.cardLabel}>Rekaman Audio</Text>
+                  <Text style={styles.cardLabel}>{t('detail_audio')}</Text>
                   <Text style={styles.cardValue}>
-                    {isPlaying ? 'Sedang diputar...' : 'Ketuk untuk memutar'}
+                    {isPlaying ? t('detail_audio_playing') : t('detail_audio_tap')}
                   </Text>
                 </View>
                 <TouchableOpacity style={[styles.playBtn, isPlaying && styles.playBtnActive]} onPress={handlePlayAudio}>
@@ -208,7 +219,7 @@ export default function ReportDetailScreen() {
 
           {/* Status timeline */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Status Penanganan</Text>
+            <Text style={styles.sectionTitle}>{t('detail_status_title')}</Text>
             <View style={styles.timeline}>
               {(['pending', 'responded', 'resolved'] as const).map((s, i) => {
                 const active = ['pending', 'responded', 'resolved'].indexOf(report.status) >= i;
@@ -217,7 +228,7 @@ export default function ReportDetailScreen() {
                     <View style={[styles.timelineDot, active && { backgroundColor: STATUS_COLOR[s] }]} />
                     {i < 2 && <View style={[styles.timelineLine, active && { backgroundColor: '#E5E7EB' }]} />}
                     <Text style={[styles.timelineLabel, active && { color: '#111827', fontWeight: '600' }]}>
-                      {STATUS_LABEL[s]}
+                      {t(STATUS_KEY[s])}
                     </Text>
                   </View>
                 );

@@ -5,18 +5,28 @@ import React, { useContext, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
+import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,
-  EMERGENCY_LABELS,
   EmergencyType,
   Report,
   getReports,
 } from '../services/reportService';
 
-const STATUS_LABEL: Record<Report['status'], string> = {
-  pending: 'Menunggu',
-  responded: 'Ditangani',
-  resolved: 'Selesai',
+const STATUS_KEY: Record<Report['status'], TranslationKey> = {
+  pending: 'status_pending',
+  responded: 'status_responded',
+  resolved: 'status_resolved',
+};
+
+const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
+  fire: 'type_fire',
+  accident: 'type_accident',
+  crime: 'type_crime',
+  disaster: 'type_disaster',
+  medical: 'type_medical',
+  other: 'type_other',
 };
 
 const STATUS_COLOR: Record<Report['status'], string> = {
@@ -34,8 +44,8 @@ const TYPE_ICON: Record<EmergencyType, string> = {
   other: 'alert-circle',
 };
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('id-ID', {
+function formatDate(date: Date, locale: string): string {
+  return date.toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-US', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -47,6 +57,7 @@ function formatDate(date: Date): string {
 export default function ReportHistoryScreen() {
   const router = useRouter();
   const { user } = useContext(AuthContext);
+  const { t, language } = useLanguage();
   const [reports, setReports] = useState<Report[]>([]);
 
   useEffect(() => {
@@ -64,7 +75,7 @@ export default function ReportHistoryScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#003B71" />
           </TouchableOpacity>
-          <Text style={styles.title}>Riwayat Laporan</Text>
+          <Text style={styles.title}>{t('history_title')}</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -87,10 +98,10 @@ export default function ReportHistoryScreen() {
 
                 <View style={styles.info}>
                   <View style={styles.row}>
-                    <Text style={[styles.typeText, { color }]}>{EMERGENCY_LABELS[item.type]}</Text>
+                    <Text style={[styles.typeText, { color }]}>{t(TYPE_KEY[item.type])}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.status] + '18' }]}>
                       <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>
-                        {STATUS_LABEL[item.status]}
+                        {t(STATUS_KEY[item.status])}
                       </Text>
                     </View>
                   </View>
@@ -99,7 +110,7 @@ export default function ReportHistoryScreen() {
                     <Ionicons name="location-outline" size={11} color="#9CA3AF" />
                     <Text style={styles.meta} numberOfLines={1}>{item.address}</Text>
                   </View>
-                  <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
+                  <Text style={styles.date}>{formatDate(item.createdAt, language)}</Text>
                 </View>
 
                 <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
@@ -109,8 +120,8 @@ export default function ReportHistoryScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <MaterialCommunityIcons name="clipboard-text-outline" size={52} color="#D1D5DB" />
-              <Text style={styles.emptyTitle}>Belum ada laporan</Text>
-              <Text style={styles.emptySub}>Laporan yang kamu buat akan muncul di sini</Text>
+              <Text style={styles.emptyTitle}>{t('history_empty')}</Text>
+              <Text style={styles.emptySub}>{t('history_empty_sub')}</Text>
             </View>
           }
         />

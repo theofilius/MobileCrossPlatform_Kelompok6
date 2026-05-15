@@ -12,11 +12,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from './context/LanguageContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function CameraCaptureScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'front' | 'back'>('back');
@@ -35,13 +37,13 @@ export default function CameraCaptureScreen() {
     return (
       <View style={styles.permissionScreen}>
         <Ionicons name="camera-outline" size={64} color="#003B71" />
-        <Text style={styles.permTitle}>Izin Kamera Diperlukan</Text>
-        <Text style={styles.permSub}>Kami butuh akses kamera untuk mengambil foto bukti kejadian.</Text>
+        <Text style={styles.permTitle}>{t('camera_perm_title')}</Text>
+        <Text style={styles.permSub}>{t('camera_perm_sub')}</Text>
         <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
-          <Text style={styles.permBtnText}>Izinkan Akses</Text>
+          <Text style={styles.permBtnText}>{t('camera_allow')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.permCancel} onPress={() => router.back()}>
-          <Text style={styles.permCancelText}>Batal</Text>
+          <Text style={styles.permCancelText}>{t('camera_cancel')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -75,17 +77,17 @@ export default function CameraCaptureScreen() {
 
         <SafeAreaView style={styles.previewOverlay} edges={['top', 'bottom']}>
           <View style={styles.previewTop}>
-            <Text style={styles.previewLabel}>Pratinjau Foto</Text>
+            <Text style={styles.previewLabel}>{t('camera_preview')}</Text>
           </View>
 
           <View style={styles.previewBottom}>
             <TouchableOpacity style={styles.retakeBtn} onPress={handleRetake}>
               <Ionicons name="refresh" size={20} color="#FFFFFF" />
-              <Text style={styles.retakeBtnText}>Foto Ulang</Text>
+              <Text style={styles.retakeBtnText}>{t('camera_retake')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
               <Ionicons name="checkmark" size={20} color="#003B71" />
-              <Text style={styles.confirmBtnText}>Gunakan Foto</Text>
+              <Text style={styles.confirmBtnText}>{t('camera_use')}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -102,7 +104,7 @@ export default function CameraCaptureScreen() {
             <TouchableOpacity style={styles.overlayBtn} onPress={() => router.back()}>
               <Ionicons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
-            <Text style={styles.cameraTitle}>Ambil Foto Bukti</Text>
+            <Text style={styles.cameraTitle}>{t('camera_title')}</Text>
             <TouchableOpacity
               style={styles.overlayBtn}
               onPress={() => setFacing(f => (f === 'back' ? 'front' : 'back'))}
@@ -135,7 +137,7 @@ export default function CameraCaptureScreen() {
               </TouchableOpacity>
               <View style={{ width: 44 }} />
             </View>
-            <Text style={styles.cameraHint}>Pastikan objek terlihat jelas</Text>
+            <Text style={styles.cameraHint}>{t('camera_hint')}</Text>
           </View>
         </SafeAreaView>
       </CameraView>

@@ -1,13 +1,19 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getPrimaryContact } from '../services/contactsService';
+import { addNotification } from '../services/notificationsService';
+
+const EMERGENCY_FALLBACK = '112';
 
 export default function EmergencyActiveScreen() {
   const router = useRouter();
   const [seconds, setSeconds] = useState(0);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -17,11 +23,91 @@ export default function EmergencyActiveScreen() {
       setSeconds(prev => prev + 1);
     }, 1000);
 
+    // Capture location once for sharing via SMS / Maps
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      } catch {}
+    })();
+
+    // Log to notification history
+    addNotification({
+      type: 'sos',
+      title: 'SOS aktif',
+      body: 'Mode darurat dimulai. Kontak utama sedang dihubungi.',
+    });
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       Vibration.cancel();
     };
   }, []);
+
+  const targetPhone = (): string => {
+    const primary = getPrimaryContact();
+    return primary?.phone ? primary.phone.replace(/[^\d+]/g, '') : EMERGENCY_FALLBACK;
+  };
+
+  const buildLocationString = (): string => {
+    if (!coords) return 'lokasi tidak tersedia';
+    return `https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}`;
+  };
+
+  const handleCall = () => {
+    const phone = targetPhone();
+    const primary = getPrimaryContact();
+    const label = primary ? `${primary.name} (${phone})` : `${EMERGENCY_FALLBACK}`;
+
+    Alert.alert(
+      'Telepon Darurat',
+      `Hubungi ${label}?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Telepon',
+          style: 'destructive',
+          onPress: () => {
+            Linking.openURL(`tel:${phone}`).catch(() =>
+              Alert.alert('!', 'Tidak dapat melakukan panggilan.')
+            );
+            addNotification({
+              type: 'call',
+              title: 'Panggilan darurat',
+              body: `Menghubungi ${label}`,
+            });
+          },
+        },
+      ],
+    );
+  };
+
+  const handleMessage = () => {
+    const phone = targetPhone();
+    const locText = buildLocationString();
+    const body = encodeURIComponent(`Tolong saya dalam keadaan darurat di titik: ${locText}`);
+    // iOS uses & as separator, Android uses ?
+    const sep = Platform.OS === 'ios' ? '&' : '?';
+    const url = `sms:${phone}${sep}body=${body}`;
+
+    Linking.openURL(url).catch(() => Alert.alert('!', 'Tidak dapat membuka aplikasi pesan.'));
+    addNotification({
+      type: 'call',
+      title: 'Pesan darurat',
+      body: `SMS ke ${phone} dengan lokasi`,
+    });
+  };
+
+  const handleLocation = () => {
+    if (!coords) {
+      Alert.alert('!', 'Lokasi belum tersedia. Tunggu beberapa detik.');
+      return;
+    }
+    const url = `https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}`;
+    Linking.openURL(url).catch(() => Alert.alert('!', 'Tidak dapat membuka peta.'));
+  };
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -56,28 +142,47 @@ export default function EmergencyActiveScreen() {
             color="rgba(255,255,255,0.15)"
             style={styles.shieldIcon}
           />
+
+          <TouchableOpacity
+            style={styles.trackingBtn}
+            onPress={() => router.push('/responder-tracking' as any)}
+            activeOpacity={0.85}
+          >
+            <MaterialCommunityIcons name="map-marker-radius" size={16} color="#FFFFFF" />
+            <Text style={styles.trackingBtnText}>Lihat Pelacakan Responder</Text>
+            <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
         {/* Middle — timer */}
         <View style={styles.timerSection}>
           <Text style={styles.timer}>{formatTime(seconds)}</Text>
-          <Text style={styles.statusText}>Menghubungi kontak darurat...</Text>
+          <Text style={styles.statusText}>
+            {(() => {
+              const p = getPrimaryContact();
+              return p ? `Menghubungi ${p.name}...` : 'Menghubungi nomor darurat 112...';
+            })()}
+          </Text>
         </View>
 
         {/* Bottom — actions + cancel */}
         <View style={styles.bottomSection}>
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.actionBtn}>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleCall}>
               <Ionicons name="call" size={26} color="#DC2626" />
               <Text style={styles.actionLabel}>Telepon</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn}>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleMessage}>
               <Ionicons name="chatbubble-ellipses" size={26} color="#DC2626" />
               <Text style={styles.actionLabel}>Pesan</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn}>
-              <Ionicons name="location" size={26} color="#DC2626" />
-              <Text style={styles.actionLabel}>Lokasi</Text>
+            <TouchableOpacity
+              style={[styles.actionBtn, !coords && styles.actionBtnDisabled]}
+              onPress={handleLocation}
+              disabled={!coords}
+            >
+              <Ionicons name="location" size={26} color={coords ? '#DC2626' : 'rgba(220,38,38,0.4)'} />
+              <Text style={[styles.actionLabel, !coords && { color: 'rgba(220,38,38,0.4)' }]}>Lokasi</Text>
             </TouchableOpacity>
           </View>
 
@@ -129,6 +234,23 @@ const styles = StyleSheet.create({
   shieldIcon: {
     marginTop: 20,
   },
+  trackingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    marginTop: 16,
+  },
+  trackingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 
   // Middle
   timerSection: {
@@ -168,6 +290,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
+  },
+  actionBtnDisabled: {
+    opacity: 0.5,
   },
   actionLabel: {
     fontSize: 11,

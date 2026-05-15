@@ -1,19 +1,32 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Alert, Image, View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useContext(AuthContext);
+  const { t, language, setLanguage } = useLanguage();
 
   const handleLogout = async () => {
     await logout();
-    // Go to login screen explicitly — not '/' which may resolve to tabs
     router.replace('/login' as any);
+  };
+
+  const handlePickLanguage = () => {
+    Alert.alert(
+      t('lang_pick_title'),
+      undefined,
+      [
+        { text: 'Bahasa Indonesia' + (language === 'id' ? '  ✓' : ''), onPress: () => setLanguage('id') },
+        { text: 'English' + (language === 'en' ? '  ✓' : ''), onPress: () => setLanguage('en') },
+        { text: t('report_cancel'), style: 'cancel' },
+      ],
+    );
   };
 
   return (
@@ -23,37 +36,68 @@ export default function ProfileScreen() {
           
           {/* Header Profile Section */}
           <View style={styles.headerSection}>
-            <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={50} color="#003B71" />
-            </View>
+            <TouchableOpacity
+              style={styles.avatarContainer}
+              onPress={() => router.push('/personal-info' as any)}
+              activeOpacity={0.85}
+            >
+              {user?.photoUri ? (
+                <Image source={{ uri: user.photoUri }} style={styles.avatarImage} />
+              ) : (
+                <Ionicons name="person" size={50} color="#003B71" />
+              )}
+            </TouchableOpacity>
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
             <Text style={styles.userPhone}>{user?.phone || '-'}</Text>
           </View>
 
           {/* Menu Options */}
           <View style={styles.menuContainer}>
-            <Text style={styles.sectionTitle}>Pengaturan Akun</Text>
+            <Text style={styles.sectionTitle}>{t('profile_settings')}</Text>
 
             <MenuOption
               icon="account-outline"
-              title="Informasi Pribadi"
+              title={t('profile_personal')}
               onPress={() => router.push('/personal-info' as any)}
             />
             <MenuOption
               icon="clipboard-list-outline"
-              title="Riwayat Laporan"
+              title={t('profile_history')}
               onPress={() => router.push('/report-history' as any)}
             />
-            <MenuOption icon="contacts-outline" title="Kontak Darurat" iconColor="#EF4444" />
-            <MenuOption icon="bell-outline" title="Notifikasi" />
-            <MenuOption icon="shield-outline" title="Privasi & Keamanan" />
-            <MenuOption icon="help-circle-outline" title="Bantuan & Dukungan" />
+            <MenuOption
+              icon="contacts-outline"
+              title={t('profile_contacts')}
+              iconColor="#EF4444"
+              onPress={() => router.push('/emergency-contacts' as any)}
+            />
+            <MenuOption
+              icon="bell-outline"
+              title={t('profile_notif')}
+              onPress={() => router.push('/notifications' as any)}
+            />
+            <MenuOption
+              icon="shield-outline"
+              title={t('profile_privacy')}
+              onPress={() => router.push('/privacy-security' as any)}
+            />
+            <MenuOption
+              icon="translate"
+              title={t('profile_language')}
+              onPress={handlePickLanguage}
+              rightLabel={language === 'id' ? 'ID' : 'EN'}
+            />
+            <MenuOption
+              icon="help-circle-outline"
+              title={t('profile_help')}
+              onPress={() => router.push('/help-support' as any)}
+            />
           </View>
 
           {/* Logout Button */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={20} color="#EF4444" />
-            <Text style={styles.logoutText}>Keluar</Text>
+            <Text style={styles.logoutText}>{t('profile_logout')}</Text>
           </TouchableOpacity>
 
         </ScrollView>
@@ -63,14 +107,21 @@ export default function ProfileScreen() {
 }
 
 // Reusable component for menu items
-function MenuOption({ icon, title, onPress, iconColor = "#003B71" }: { icon: any, title: string, onPress?: () => void, iconColor?: string }) {
+function MenuOption({ icon, title, onPress, iconColor = "#003B71", rightLabel }: { icon: any, title: string, onPress?: () => void, iconColor?: string, rightLabel?: string }) {
   return (
     <TouchableOpacity style={styles.menuOption} onPress={onPress}>
       <View style={styles.menuOptionLeft}>
         <MaterialCommunityIcons name={icon} size={24} color={iconColor} />
         <Text style={styles.menuOptionText}>{title}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#C1C1C1" />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {rightLabel && (
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#003B71', backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+            {rightLabel}
+          </Text>
+        )}
+        <Ionicons name="chevron-forward" size={20} color="#C1C1C1" />
+      </View>
     </TouchableOpacity>
   );
 }
@@ -104,6 +155,12 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
   },
   userName: {
     fontSize: 24,

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
 import { useSocket } from './context/SocketContext';
 import { ChatMessage, getMessages, sendMessage, subscribeToRoom } from '../services/chatService';
 
@@ -44,6 +45,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const { user } = useContext(AuthContext);
   const { isConnected } = useSocket();
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const listRef = useRef<FlatList>(null);
@@ -92,10 +94,10 @@ export default function ChatScreen() {
               <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Chat Komunitas</Text>
+              <Text style={styles.headerTitle}>{t('chat_title')}</Text>
               <View style={styles.onlineRow}>
                 <View style={[styles.onlineDot, { backgroundColor: isConnected ? '#34D399' : '#9CA3AF' }]} />
-                <Text style={styles.onlineText}>{isConnected ? 'Terhubung' : 'Offline'}</Text>
+                <Text style={styles.onlineText}>{isConnected ? t('chat_connected') : t('chat_offline')}</Text>
               </View>
             </View>
             <View style={{ width: 36 }} />
@@ -118,8 +120,8 @@ export default function ChatScreen() {
               ListEmptyComponent={
                 <View style={styles.emptyChat}>
                   <Ionicons name="chatbubbles-outline" size={48} color="rgba(255,255,255,0.2)" />
-                  <Text style={styles.emptyChatText}>Belum ada pesan</Text>
-                  <Text style={styles.emptyChatSub}>Mulai percakapan dengan komunitas</Text>
+                  <Text style={styles.emptyChatText}>{t('chat_empty')}</Text>
+                  <Text style={styles.emptyChatSub}>{t('chat_empty_sub')}</Text>
                 </View>
               }
             />
@@ -129,7 +131,7 @@ export default function ChatScreen() {
           <View style={styles.inputRow}>
             <TextInput
               style={styles.input}
-              placeholder="Ketik pesan..."
+              placeholder={t('chat_placeholder')}
               placeholderTextColor="rgba(255,255,255,0.4)"
               value={input}
               onChangeText={setInput}

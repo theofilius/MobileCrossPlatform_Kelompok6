@@ -4,9 +4,11 @@ import { Link, useRouter } from 'expo-router';
 import { FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from './context/LanguageContext';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -14,30 +16,12 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleNext = () => {
-    if (!name.trim()) {
-      Alert.alert('Validasi', 'Masukkan nama lengkap kamu.');
-      return;
-    }
-    if (!email.trim()) {
-      Alert.alert('Validasi', 'Masukkan alamat email kamu.');
-      return;
-    }
-    if (!phone.trim()) {
-      Alert.alert('Validasi', 'Masukkan nomor telepon kamu.');
-      return;
-    }
-    if (!password.trim()) {
-      Alert.alert('Validasi', 'Masukkan kata sandi kamu.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Validasi', 'Kata sandi tidak cocok.');
-      return;
-    }
-    router.push({
-      pathname: '/otp',
-      params: { name, phone },
-    } as any);
+    if (!name.trim()) { Alert.alert('!', t('val_name')); return; }
+    if (!email.trim()) { Alert.alert('!', t('val_email')); return; }
+    if (!phone.trim()) { Alert.alert('!', t('val_phone')); return; }
+    if (!password.trim()) { Alert.alert('!', t('val_password')); return; }
+    if (password !== confirmPassword) { Alert.alert('!', t('val_confirm')); return; }
+    router.push({ pathname: '/otp', params: { name, phone } } as any);
   };
 
   return (
@@ -50,21 +34,21 @@ export default function SignUpScreen() {
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
             <View style={styles.header}>
-              <Text style={styles.title}>Buat Akun</Text>
-              <Text style={styles.subtitle}>Daftarkan diri agar kontak darurat kamu{'\n'}dapat dihubungi saat dibutuhkan</Text>
+              <Text style={styles.title}>{t('signup_title')}</Text>
+              <Text style={styles.subtitle}>{t('signup_subtitle')}</Text>
             </View>
 
             <View style={styles.form}>
               <TextInput
                 style={styles.input}
-                placeholder="Nama Lengkap"
+                placeholder={t('signup_name')}
                 placeholderTextColor="#8D8E8E"
                 value={name}
                 onChangeText={setName}
               />
               <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder={t('signup_email')}
                 placeholderTextColor="#8D8E8E"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -73,7 +57,7 @@ export default function SignUpScreen() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Nomor Telepon"
+                placeholder={t('signup_phone')}
                 placeholderTextColor="#8D8E8E"
                 keyboardType="phone-pad"
                 value={phone}
@@ -81,7 +65,7 @@ export default function SignUpScreen() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Kata Sandi"
+                placeholder={t('signup_password')}
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
                 value={password}
@@ -89,7 +73,7 @@ export default function SignUpScreen() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Konfirmasi Kata Sandi"
+                placeholder={t('signup_confirm')}
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
                 value={confirmPassword}
@@ -97,12 +81,12 @@ export default function SignUpScreen() {
               />
 
               <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                <Text style={styles.nextButtonText}>Lanjutkan</Text>
+                <Text style={styles.nextButtonText}>{t('signup_continue')}</Text>
               </TouchableOpacity>
 
               <Link href="/login" asChild>
                 <TouchableOpacity style={styles.loginLinkButton}>
-                  <Text style={styles.loginLinkText}>Sudah punya akun? Masuk</Text>
+                  <Text style={styles.loginLinkText}>{t('signup_have_account')} {t('signup_login')}</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -110,7 +94,7 @@ export default function SignUpScreen() {
             <View style={styles.socialSection}>
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
-                <Text style={styles.dividerText}>Atau daftar dengan</Text>
+                <Text style={styles.dividerText}>{t('login_or')}</Text>
                 <View style={styles.divider} />
               </View>
 

@@ -1,11 +1,14 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,12 +21,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCamera } from '../hooks/useCamera';
 import { useLocation } from '../hooks/useLocation';
 import { clearPendingAudio, getPendingAudio } from '../utils/pendingAudio';
+import { useLanguage } from './context/LanguageContext';
+import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,
-  EMERGENCY_LABELS,
   EmergencyType,
   createReport,
 } from '../services/reportService';
+
+const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
+  fire: 'type_fire',
+  accident: 'type_accident',
+  crime: 'type_crime',
+  disaster: 'type_disaster',
+  medical: 'type_medical',
+  other: 'type_other',
+};
 
 export default function ReportFormScreen() {
   const router = useRouter();
@@ -35,8 +48,60 @@ export default function ReportFormScreen() {
   const [audioUri, setAudioUri] = useState<string | null>(params.audioUri ?? null);
   const [submitting, setSubmitting] = useState(false);
 
-  const { coords, address, loading: locLoading } = useLocation();
+  const { coords, address, loading: locLoading, refresh: refreshLocation } = useLocation();
   const { capturePhoto, pickFromGallery } = useCamera();
+  const { t } = useLanguage();
+
+  const [manualAddress, setManualAddress] = useState<string | null>(null);
+  const [manualCoords, setManualCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locModalOpen, setLocModalOpen] = useState(false);
+  const [locDraft, setLocDraft] = useState('');
+  const [geocoding, setGeocoding] = useState(false);
+
+  // Final displayed address & coords: manual override wins if set
+  const displayAddress = manualAddress ?? address;
+  const displayCoords = manualCoords ?? coords;
+
+  const openEditLocation = () => {
+    setLocDraft(displayAddress);
+    setLocModalOpen(true);
+  };
+
+  const handleSaveLocation = async () => {
+    const trimmed = locDraft.trim();
+    if (trimmed.length === 0) {
+      setManualAddress(null);
+      setManualCoords(null);
+      setLocModalOpen(false);
+      return;
+    }
+    setGeocoding(true);
+    try {
+      // Forward geocode: text → lat/lng using device-native geocoder (free, no key)
+      const results = await Location.geocodeAsync(trimmed);
+      if (results.length > 0) {
+        setManualAddress(trimmed);
+        setManualCoords({ latitude: results[0].latitude, longitude: results[0].longitude });
+      } else {
+        // Couldn't resolve — still save the text but keep previous coords
+        setManualAddress(trimmed);
+        Alert.alert('!', 'Lokasi tidak ditemukan di peta. Alamat tetap disimpan, tapi pin peta mungkin tidak akurat.');
+      }
+    } catch {
+      setManualAddress(trimmed);
+      Alert.alert('!', 'Gagal mencari lokasi. Coba lagi.');
+    } finally {
+      setGeocoding(false);
+      setLocModalOpen(false);
+    }
+  };
+
+  const handleUseGps = async () => {
+    setManualAddress(null);
+    setManualCoords(null);
+    await refreshLocation();
+    setLocDraft(address);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -49,13 +114,13 @@ export default function ReportFormScreen() {
   );
 
   const accentColor = EMERGENCY_COLORS[type];
-  const typeLabel = EMERGENCY_LABELS[type];
+  const typeLabel = t(TYPE_KEY[type]);
 
   const handlePhoto = () => {
-    Alert.alert('Tambah Foto', 'Pilih sumber foto', [
-      { text: 'Buka Kamera', onPress: async () => { const uri = await capturePhoto(); if (uri) setPhotoUri(uri); } },
-      { text: 'Pilih dari Galeri', onPress: async () => { const uri = await pickFromGallery(); if (uri) setPhotoUri(uri); } },
-      { text: 'Batal', style: 'cancel' },
+    Alert.alert(t('report_photo_title'), t('report_photo_source'), [
+      { text: t('report_camera'), onPress: async () => { const uri = await capturePhoto(); if (uri) setPhotoUri(uri); } },
+      { text: t('report_gallery'), onPress: async () => { const uri = await pickFromGallery(); if (uri) setPhotoUri(uri); } },
+      { text: t('report_cancel'), style: 'cancel' },
     ]);
   };
 
@@ -65,7 +130,7 @@ export default function ReportFormScreen() {
 
   const handleSubmit = async () => {
     if (!description.trim()) {
-      Alert.alert('Validasi', 'Tambahkan deskripsi kejadian terlebih dahulu.');
+      Alert.alert('!', t('report_val_desc'));
       return;
     }
     setSubmitting(true);
@@ -73,16 +138,16 @@ export default function ReportFormScreen() {
       createReport({
         type,
         description: description.trim(),
-        latitude: coords?.latitude ?? null,
-        longitude: coords?.longitude ?? null,
-        address,
+        latitude: displayCoords?.latitude ?? null,
+        longitude: displayCoords?.longitude ?? null,
+        address: displayAddress,
         photoUri,
         audioUri,
         userId: undefined,
       });
       Alert.alert(
-        'Laporan Terkirim',
-        'Laporan kamu telah berhasil dikirim. Tim kami akan segera menindaklanjuti.',
+        t('report_success_title'),
+        t('report_success_msg'),
         [{ text: 'OK', onPress: () => router.replace('/(tabs)' as any) }]
       );
     } finally {
@@ -102,7 +167,7 @@ export default function ReportFormScreen() {
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
               <Ionicons name="chevron-back" size={22} color="#003B71" />
             </TouchableOpacity>
-            <Text style={styles.topTitle}>Buat Laporan</Text>
+            <Text style={styles.topTitle}>{t('report_title')}</Text>
             <View style={styles.typeBadge}>
               <View style={[styles.typeDot, { backgroundColor: accentColor }]} />
               <Text style={[styles.typeText, { color: accentColor }]}>{typeLabel}</Text>
@@ -118,23 +183,50 @@ export default function ReportFormScreen() {
                   <Ionicons name="location" size={20} color="#2563EB" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.cardLabel}>Lokasi Kejadian</Text>
+                  <Text style={styles.cardLabel}>{t('report_location')}</Text>
                   <Text style={styles.cardValue} numberOfLines={2}>
-                    {locLoading ? 'Memuat lokasi...' : address}
+                    {locLoading && !manualAddress ? t('report_loading_loc') : displayAddress}
                   </Text>
                 </View>
-                <TouchableOpacity>
-                  <Ionicons name="pencil-outline" size={18} color="#9CA3AF" />
+                <TouchableOpacity onPress={openEditLocation} hitSlop={8}>
+                  <Ionicons name="pencil-outline" size={18} color="#003B71" />
                 </TouchableOpacity>
               </View>
+
+              {displayCoords && (
+                <View style={styles.mapPreviewWrap}>
+                  <MapView
+                    style={styles.mapPreview}
+                    provider={PROVIDER_DEFAULT}
+                    region={{
+                      latitude: displayCoords.latitude,
+                      longitude: displayCoords.longitude,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005,
+                    }}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                    pitchEnabled={false}
+                    rotateEnabled={false}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: displayCoords.latitude,
+                        longitude: displayCoords.longitude,
+                      }}
+                      pinColor={accentColor}
+                    />
+                  </MapView>
+                </View>
+              )}
             </View>
 
             {/* Description */}
             <View style={styles.card}>
-              <Text style={styles.inputLabel}>Deskripsi Kejadian</Text>
+              <Text style={styles.inputLabel}>{t('report_desc_label')}</Text>
               <TextInput
                 style={styles.textArea}
-                placeholder="Ceritakan apa yang terjadi, sedetail mungkin..."
+                placeholder={t('report_desc_ph')}
                 placeholderTextColor="#9CA3AF"
                 multiline
                 numberOfLines={5}
@@ -142,11 +234,11 @@ export default function ReportFormScreen() {
                 value={description}
                 onChangeText={setDescription}
               />
-              <Text style={styles.charCount}>{description.length} karakter</Text>
+              <Text style={styles.charCount}>{description.length} {t('report_chars')}</Text>
             </View>
 
             {/* Media section */}
-            <Text style={styles.sectionLabel}>Lampiran Bukti</Text>
+            <Text style={styles.sectionLabel}>{t('report_evidence')}</Text>
 
             {/* Photo */}
             <TouchableOpacity style={styles.mediaCard} onPress={handlePhoto} activeOpacity={0.8}>
@@ -154,8 +246,8 @@ export default function ReportFormScreen() {
                 <View style={styles.photoPreviewRow}>
                   <Image source={{ uri: photoUri }} style={styles.photoThumb} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.mediaTitle}>Foto terlampir</Text>
-                    <Text style={styles.mediaSub}>Ketuk untuk ganti</Text>
+                    <Text style={styles.mediaTitle}>{t('report_photo_attached')}</Text>
+                    <Text style={styles.mediaSub}>{t('report_photo_change')}</Text>
                   </View>
                   <TouchableOpacity onPress={() => setPhotoUri(null)}>
                     <Ionicons name="close-circle" size={22} color="#EF4444" />
@@ -167,8 +259,8 @@ export default function ReportFormScreen() {
                     <Ionicons name="camera" size={22} color="#2563EB" />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.mediaTitle}>Tambah Foto</Text>
-                    <Text style={styles.mediaSub}>Kamera atau galeri</Text>
+                    <Text style={styles.mediaTitle}>{t('report_add_photo')}</Text>
+                    <Text style={styles.mediaSub}>{t('report_photo_source')}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#C1C1C1" />
                 </View>
@@ -187,10 +279,10 @@ export default function ReportFormScreen() {
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.mediaTitle}>
-                    {audioUri ? 'Audio terlampir' : 'Rekam Audio'}
+                    {audioUri ? t('report_audio_attached') : t('report_audio')}
                   </Text>
                   <Text style={styles.mediaSub}>
-                    {audioUri ? 'Ketuk untuk rekam ulang' : 'Rekam kesaksian suara'}
+                    {audioUri ? t('report_audio_retake') : t('report_audio_sub')}
                   </Text>
                 </View>
                 {audioUri ? (
@@ -212,12 +304,69 @@ export default function ReportFormScreen() {
             >
               <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
               <Text style={styles.submitText}>
-                {submitting ? 'Mengirim...' : 'Kirim Laporan'}
+                {submitting ? t('report_submitting') : t('report_submit')}
               </Text>
             </TouchableOpacity>
 
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* Edit Location Modal */}
+        <Modal
+          visible={locModalOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setLocModalOpen(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.locModalOverlay}
+          >
+            <View style={styles.locModalCard}>
+              <View style={styles.locModalHeader}>
+                <Text style={styles.locModalTitle}>{t('report_edit_loc_title')}</Text>
+                <TouchableOpacity onPress={() => setLocModalOpen(false)} hitSlop={8}>
+                  <Ionicons name="close" size={22} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.locModalHint}>{t('report_edit_loc_hint')}</Text>
+
+              <TextInput
+                style={styles.locInput}
+                value={locDraft}
+                onChangeText={setLocDraft}
+                placeholder={t('report_edit_loc_ph')}
+                placeholderTextColor="#9CA3AF"
+                multiline
+                textAlignVertical="top"
+              />
+
+              <TouchableOpacity style={styles.gpsBtn} onPress={handleUseGps} disabled={locLoading}>
+                <Ionicons name="locate" size={16} color="#003B71" />
+                <Text style={styles.gpsBtnText}>
+                  {locLoading ? t('report_loading_loc') : t('report_use_gps')}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.locModalActions}>
+                <TouchableOpacity style={styles.locCancel} onPress={() => setLocModalOpen(false)}>
+                  <Text style={styles.locCancelText}>{t('ec_cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.locSave, geocoding && { opacity: 0.7 }]}
+                  onPress={handleSaveLocation}
+                  disabled={geocoding}
+                >
+                  <Text style={styles.locSaveText}>
+                    {geocoding ? t('report_loading_loc') : t('ec_save')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
       </SafeAreaView>
     </LinearGradient>
   );
@@ -313,6 +462,18 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
+  mapPreviewWrap: {
+    marginTop: 12,
+    borderRadius: 10,
+    overflow: 'hidden',
+    height: 140,
+    backgroundColor: '#EAF3FB',
+  },
+  mapPreview: {
+    width: '100%',
+    height: '100%',
+  },
+
   inputLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -403,5 +564,94 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+
+  // Location edit modal
+  locModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  locModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  locModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  locModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#003B71',
+  },
+  locModalHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  locInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#111827',
+    minHeight: 80,
+    lineHeight: 20,
+  },
+  gpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  gpsBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#003B71',
+  },
+  locModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  locCancel: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  locCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  locSave: {
+    flex: 2,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#003B71',
+  },
+  locSaveText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

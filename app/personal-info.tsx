@@ -1,25 +1,60 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
+import { useCamera } from '../hooks/useCamera';
 
 export default function PersonalInfoScreen() {
   const router = useRouter();
   const { user, updateUser } = useContext(AuthContext);
+  const { t } = useLanguage();
+  const { capturePhoto, pickFromGallery } = useCamera();
 
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [photoUri, setPhotoUri] = useState<string | undefined>(user?.photoUri);
+
+  const handlePickPhoto = () => {
+    Alert.alert(
+      t('pi_change_photo'),
+      t('pi_photo_source'),
+      [
+        {
+          text: t('pi_photo_camera'),
+          onPress: async () => {
+            const uri = await capturePhoto();
+            if (uri) {
+              setPhotoUri(uri);
+              updateUser({ photoUri: uri });
+            }
+          },
+        },
+        {
+          text: t('pi_photo_gallery'),
+          onPress: async () => {
+            const uri = await pickFromGallery();
+            if (uri) {
+              setPhotoUri(uri);
+              updateUser({ photoUri: uri });
+            }
+          },
+        },
+        { text: t('ec_cancel'), style: 'cancel' },
+      ],
+    );
+  };
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Validation', 'Name cannot be empty.');
+      Alert.alert('!', t('pi_val_name'));
       return;
     }
-    updateUser({ name: name.trim(), phone: phone.trim(), email: email.trim() });
-    Alert.alert('Success', 'Your information has been updated.', [
+    updateUser({ name: name.trim(), phone: phone.trim(), email: email.trim(), photoUri });
+    Alert.alert(t('pi_success_title'), t('pi_success'), [
       { text: 'OK', onPress: () => router.back() }
     ]);
   };
@@ -38,54 +73,61 @@ export default function PersonalInfoScreen() {
               <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color="#003B71" />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Personal Information</Text>
+              <Text style={styles.headerTitle}>{t('pi_title')}</Text>
               <View style={{ width: 24 }} />
             </View>
 
             {/* Avatar */}
             <View style={styles.avatarSection}>
-              <View style={styles.avatarContainer}>
-                <Ionicons name="person" size={50} color="#003B71" />
-              </View>
-              <TouchableOpacity style={styles.changePhotoButton}>
-                <Text style={styles.changePhotoText}>Change Photo</Text>
+              <TouchableOpacity style={styles.avatarContainer} onPress={handlePickPhoto} activeOpacity={0.8}>
+                {photoUri ? (
+                  <Image source={{ uri: photoUri }} style={styles.avatarImage} />
+                ) : (
+                  <Ionicons name="person" size={50} color="#003B71" />
+                )}
+                <View style={styles.editBadge}>
+                  <Ionicons name="camera" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.changePhotoButton} onPress={handlePickPhoto}>
+                <Text style={styles.changePhotoText}>{t('pi_change_photo')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Form */}
             <View style={styles.form}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput 
-                style={styles.input} 
+              <Text style={styles.label}>{t('pi_name')}</Text>
+              <TextInput
+                style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Enter your full name"
+                placeholder={t('signup_name')}
                 placeholderTextColor="#8D8E8E"
               />
 
-              <Text style={styles.label}>Phone Number</Text>
-              <TextInput 
-                style={styles.input} 
+              <Text style={styles.label}>{t('pi_phone')}</Text>
+              <TextInput
+                style={styles.input}
                 value={phone}
                 onChangeText={setPhone}
-                placeholder="Enter your phone number"
+                placeholder={t('signup_phone')}
                 placeholderTextColor="#8D8E8E"
                 keyboardType="phone-pad"
               />
 
-              <Text style={styles.label}>Email</Text>
-              <TextInput 
-                style={styles.input} 
+              <Text style={styles.label}>{t('pi_email')}</Text>
+              <TextInput
+                style={styles.input}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="Enter your email"
+                placeholder={t('signup_email')}
                 placeholderTextColor="#8D8E8E"
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
 
               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save Changes</Text>
+                <Text style={styles.saveButtonText}>{t('pi_save')}</Text>
               </TouchableOpacity>
             </View>
             
@@ -142,6 +184,25 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#003B71',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   changePhotoButton: {
     paddingHorizontal: 16,
