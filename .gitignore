@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Supabase env (do not commit anon/service keys to public repos)
+.env

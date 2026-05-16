@@ -291,6 +291,20 @@ export const translations = {
     rt_seconds: 'detik',
     rt_meters: 'm',
     rt_kilometers: 'km',
+
+    // Learn — section labels
+    learn_symptoms: 'Tanda / Gejala',
+    learn_steps: 'Langkah Penanganan',
+    learn_donts: 'JANGAN Lakukan',
+    learn_when_call: 'Kapan Telepon Darurat',
+    learn_before: 'Sebelum Bencana',
+    learn_during: 'Saat Terjadi',
+    learn_after: 'Setelah Bencana',
+    learn_topic_count: 'topik',
+    learn_first_aid_title: 'Pertolongan Pertama',
+    learn_first_aid_sub: 'Panduan tindakan cepat saat keadaan darurat medis',
+    learn_disaster_title: 'Bencana Alam',
+    learn_disaster_sub: 'Apa yang harus dilakukan sebelum, saat, dan setelah bencana',
   },
 
   en: {
@@ -583,6 +597,20 @@ export const translations = {
     rt_seconds: 'sec',
     rt_meters: 'm',
     rt_kilometers: 'km',
+
+    // Learn — section labels
+    learn_symptoms: 'Signs / Symptoms',
+    learn_steps: 'Action Steps',
+    learn_donts: 'DO NOT Do',
+    learn_when_call: 'When to Call Emergency',
+    learn_before: 'Before Disaster',
+    learn_during: 'During Disaster',
+    learn_after: 'After Disaster',
+    learn_topic_count: 'topics',
+    learn_first_aid_title: 'First Aid',
+    learn_first_aid_sub: 'Quick-action guide for medical emergencies',
+    learn_disaster_title: 'Natural Disaster',
+    learn_disaster_sub: 'What to do before, during, and after disaster',
   },
 } as const;
 

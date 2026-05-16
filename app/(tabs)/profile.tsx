@@ -9,12 +9,13 @@ import { useLanguage } from '../context/LanguageContext';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useContext(AuthContext);
+  const { user, signOut } = useContext(AuthContext);
   const { t, language, setLanguage } = useLanguage();
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/login' as any);
+    await signOut();
+    // AuthGate in _layout will redirect to /login automatically once
+    // onAuthStateChange clears the session.
   };
 
   const handlePickLanguage = () => {

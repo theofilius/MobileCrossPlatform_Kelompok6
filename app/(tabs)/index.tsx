@@ -169,11 +169,11 @@ export default function HomeScreen() {
               <Text style={styles.learnTitle}>{t('home_learn')}</Text>
               <Ionicons name="arrow-forward" size={14} color="#003B71" />
             </View>
-            <TouchableOpacity style={styles.pill}>
+            <TouchableOpacity style={styles.pill} onPress={() => router.push('/first-aid' as any)}>
               <Text style={styles.pillText}>{t('home_first_aid')}</Text>
               <Ionicons name="chevron-forward-circle-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.pill}>
+            <TouchableOpacity style={styles.pill} onPress={() => router.push('/disaster' as any)}>
               <Text style={styles.pillText}>{t('home_disaster')}</Text>
               <Ionicons name="chevron-forward-circle-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>

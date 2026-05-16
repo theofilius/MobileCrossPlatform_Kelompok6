@@ -48,12 +48,12 @@ export default function PersonalInfoScreen() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('!', t('pi_val_name'));
       return;
     }
-    updateUser({ name: name.trim(), phone: phone.trim(), email: email.trim(), photoUri });
+    await updateUser({ name: name.trim(), phone: phone.trim(), email: email.trim(), photoUri });
     Alert.alert(t('pi_success_title'), t('pi_success'), [
       { text: 'OK', onPress: () => router.back() }
     ]);

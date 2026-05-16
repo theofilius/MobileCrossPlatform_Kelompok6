@@ -1,13 +1,15 @@
-import React, { useRef, useState, useContext } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AuthContext } from './context/AuthContext';
+
+// NOTE: This OTP screen is currently NOT part of the signup flow.
+// Signup now uses Supabase Auth (email + password) and email confirmation
+// is handled via the link Supabase sends. This screen is kept as a placeholder
+// for future phone-OTP integration via supabase.auth.signInWithOtp.
 
 export default function OTPScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const { login } = useContext(AuthContext);
   const [otp, setOtp] = useState(['', '', '', '']);
   const inputs = useRef<Array<TextInput | null>>([]);
 
@@ -29,26 +31,13 @@ export default function OTPScreen() {
   };
 
   const handleConfirm = async () => {
-    // Validate all 4 digits are filled
-    if (otp.some(d => d === '')) {
-      Alert.alert('Validation', 'Please enter the complete 4-digit OTP code.');
-      return;
-    }
-
-    const name = (params.name as string) || 'User';
-    const phone = (params.phone as string) || '';
-
-    if (!name || name === 'User' || !phone) {
-      Alert.alert('Error', 'Registration data is missing. Please start over.');
-      router.replace('/signup' as any);
-      return;
-    }
-
-    // Save user to context (simulates successful account creation)
-    await login({ name, phone });
-
-    // Navigate to Location Permission
-    router.replace('/location-permission' as any);
+    // OTP-based signup is disabled — signup now uses Supabase Auth
+    // (email + password). This screen is a placeholder for future phone OTP.
+    Alert.alert(
+      'OTP belum tersedia',
+      'Pendaftaran sekarang menggunakan email dan kata sandi. Silakan masuk dengan akun email kamu.',
+      [{ text: 'OK', onPress: () => router.replace('/login' as any) }],
+    );
   };
 
   return (
@@ -70,7 +59,7 @@ export default function OTPScreen() {
                 {otp.map((digit, index) => (
                   <TextInput
                     key={index}
-                    ref={(ref) => (inputs.current[index] = ref)}
+                    ref={(ref) => { inputs.current[index] = ref; }}
                     style={styles.otpInput}
                     value={digit}
                     onChangeText={(value) => handleOtpChange(value, index)}
