@@ -4,15 +4,21 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Report } from '../../services/reportService';
 
 const COLOR: Record<Report['status'], string> = {
-  pending: '#F97316',
-  responded: '#3B82F6',
-  resolved: '#10B981',
+  pending:   '#F97316',
+  accepted:  '#3B82F6',
+  ontheway:  '#3B82F6',
+  arrived:   '#3B82F6',
+  resolved:  '#10B981',
+  cancelled: '#9CA3AF',
 };
 
 const ICON: Record<Report['status'], string> = {
-  pending: 'time-outline',
-  responded: 'shield-checkmark-outline',
-  resolved: 'checkmark-circle-outline',
+  pending:   'time-outline',
+  accepted:  'shield-checkmark-outline',
+  ontheway:  'shield-checkmark-outline',
+  arrived:   'shield-checkmark-outline',
+  resolved:  'checkmark-circle-outline',
+  cancelled: 'close-circle-outline',
 };
 
 export type StatusBadgeProps = {

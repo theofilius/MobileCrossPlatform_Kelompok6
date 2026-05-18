@@ -2,12 +2,15 @@ import { Session } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 
+export type UserRole = 'user' | 'petugas' | 'admin';
+
 export type User = {
   id: string;
   name: string;
   email?: string;
   phone?: string;
   photoUri?: string;
+  role: UserRole;
 };
 
 export type SignInResult = { ok: true } | { ok: false; error: string };
@@ -42,16 +45,22 @@ export const AuthContext = createContext<AuthContextType>({
 async function fetchProfile(userId: string): Promise<Partial<User>> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, email, phone, photo_uri')
+    .select('name, email, phone, photo_uri, role')
     .eq('id', userId)
     .maybeSingle();
 
   if (error || !data) return {};
+  // Guard the role value — anything outside the allowed set is treated as 'user'.
+  const rawRole = (data as { role?: string }).role;
+  const role: UserRole =
+    rawRole === 'petugas' || rawRole === 'admin' ? rawRole : 'user';
+
   return {
     name: data.name,
     email: data.email ?? undefined,
     phone: data.phone ?? undefined,
     photoUri: data.photo_uri ?? undefined,
+    role,
   };
 }
 
@@ -62,6 +71,7 @@ function buildUser(session: Session, profile: Partial<User>): User {
     name: profile.name ?? (session.user.email ? session.user.email.split('@')[0] : 'User'),
     phone: profile.phone,
     photoUri: profile.photoUri,
+    role: profile.role ?? 'user',
   };
 }
 
@@ -74,16 +84,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
+    // Watchdog: if anything blocks for too long (e.g. cold-start after iOS
+    // killed the app while another app was foregrounded, slow AsyncStorage),
+    // release the loading gate so the user isn't stuck on a spinner forever.
+    const watchdog = setTimeout(() => {
+      if (mounted) setIsLoading(false);
+    }, 1500);
+
     (async () => {
-      const { data: { session: existing } } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setSession(existing);
-      if (existing) {
-        const profile = await fetchProfile(existing.user.id);
+      let existing: Session | null = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        existing = data.session;
         if (!mounted) return;
-        setUser(buildUser(existing, profile));
+        setSession(existing);
+
+        if (existing) {
+          // Seed user immediately from the session so AuthGate stops blocking
+          // the UI behind a profiles network round-trip. Profile fields
+          // (name, phone, role, photo) are filled in once fetchProfile resolves.
+          setUser(buildUser(existing, {}));
+        }
+      } finally {
+        if (mounted) {
+          clearTimeout(watchdog);
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
+
+      if (!existing) return;
+      const profile = await fetchProfile(existing.user.id);
+      if (!mounted) return;
+      setUser(buildUser(existing, profile));
     })();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
@@ -98,6 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       mounted = false;
+      clearTimeout(watchdog);
       subscription.unsubscribe();
     };
   }, []);

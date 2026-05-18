@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Linking,
@@ -28,6 +27,7 @@ import {
   updateContact,
 } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
+import { useDialog } from '../components/aegis/Dialog';
 
 const PRIORITY_COLOR: Record<ContactPriority, string> = {
   primary: '#DC2626',
@@ -48,6 +48,7 @@ function sanitizePhone(raw: string): string {
 export default function EmergencyContactsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const dialog = useDialog();
 
   const [contacts, setContacts] = useState<EmergencyContact[]>(getContacts());
   const [modalOpen, setModalOpen] = useState(false);
@@ -82,9 +83,15 @@ export default function EmergencyContactsScreen() {
   };
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('!', t('ec_val_name')); return; }
+    if (!name.trim()) {
+      dialog.show({ type: 'error', title: '!', body: t('ec_val_name'), primaryText: 'OK' });
+      return;
+    }
     const cleaned = sanitizePhone(phone);
-    if (!cleaned) { Alert.alert('!', t('ec_val_phone')); return; }
+    if (!cleaned) {
+      dialog.show({ type: 'error', title: '!', body: t('ec_val_phone'), primaryText: 'OK' });
+      return;
+    }
 
     if (editing) {
       updateContact(editing.id, {
@@ -110,36 +117,32 @@ export default function EmergencyContactsScreen() {
   };
 
   const handleDelete = (c: EmergencyContact) => {
-    Alert.alert(
-      t('ec_delete_confirm_title'),
-      t('ec_delete_confirm_msg'),
-      [
-        { text: t('ec_cancel'), style: 'cancel' },
-        {
-          text: t('ec_delete'),
-          style: 'destructive',
-          onPress: () => {
-            deleteContact(c.id);
-            addNotification({
-              type: 'contact',
-              title: t('ec_delete'),
-              body: c.name,
-            });
-          },
-        },
-      ],
-    );
+    dialog.show({
+      type: 'warning',
+      title: t('ec_delete_confirm_title'),
+      body: t('ec_delete_confirm_msg'),
+      primaryText: t('ec_delete'),
+      secondaryText: t('ec_cancel'),
+      onPrimary: () => {
+        deleteContact(c.id);
+        addNotification({
+          type: 'contact',
+          title: t('ec_delete'),
+          body: c.name,
+        });
+      },
+    });
   };
 
   const handleCall = (c: EmergencyContact) => {
     const url = `tel:${c.phone}`;
-    Linking.openURL(url).catch(() => Alert.alert('!', 'Tidak dapat melakukan panggilan.'));
+    Linking.openURL(url).catch(() => dialog.show({ type: 'error', title: '!', body: 'Tidak dapat melakukan panggilan.', primaryText: 'OK' }));
   };
 
   const handleWhatsApp = (c: EmergencyContact) => {
     const cleaned = c.phone.replace(/[^\d]/g, '');
     Linking.openURL(`https://wa.me/${cleaned}`).catch(() =>
-      Alert.alert('!', 'WhatsApp tidak terpasang.')
+      dialog.show({ type: 'error', title: '!', body: 'WhatsApp tidak terpasang.', primaryText: 'OK' })
     );
   };
 
@@ -303,7 +306,7 @@ export default function EmergencyContactsScreen() {
             </View>
           </KeyboardAvoidingView>
         </Modal>
-
+        <dialog.Dialog />
       </SafeAreaView>
     </LinearGradient>
   );

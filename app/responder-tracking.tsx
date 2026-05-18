@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from './context/LanguageContext';
+import { useDialog } from '../components/aegis/Dialog';
 
 const { width } = Dimensions.get('window');
 const MAP_SIZE = width - 32;
@@ -45,6 +46,7 @@ function formatDistance(meters: number, t: (k: any) => string): string {
 export default function ResponderTrackingScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const dialog = useDialog();
 
   const [etaSec, setEtaSec] = useState(TOTAL_ETA_SEC);
   const [distance, setDistance] = useState(START_DISTANCE_M);
@@ -122,23 +124,23 @@ export default function ResponderTrackingScreen() {
   }));
 
   const handleCall = () => {
-    Alert.alert(
-      RESPONDER.name,
-      `Telepon petugas (${RESPONDER.phone})?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Telepon', onPress: () => Linking.openURL(`tel:${RESPONDER.phone}`) },
-      ],
-    );
+    dialog.show({
+      type: 'confirm',
+      title: RESPONDER.name,
+      body: `Telepon petugas (${RESPONDER.phone})?`,
+      primaryText: 'Telepon',
+      secondaryText: 'Batal',
+      onPrimary: () => Linking.openURL(`tel:${RESPONDER.phone}`)
+    });
   };
 
   const handleShareLocation = () => {
     if (!userCoords) {
-      Alert.alert('!', 'Lokasi belum tersedia.');
+      dialog.show({ type: 'error', title: '!', body: 'Lokasi belum tersedia.', primaryText: 'OK' });
       return;
     }
     const url = `https://www.google.com/maps/search/?api=1&query=${userCoords.latitude},${userCoords.longitude}`;
-    Linking.openURL(url).catch(() => Alert.alert('!', 'Tidak dapat membuka peta.'));
+    Linking.openURL(url).catch(() => dialog.show({ type: 'error', title: '!', body: 'Tidak dapat membuka peta.', primaryText: 'OK' }));
   };
 
   return (
@@ -255,6 +257,7 @@ export default function ResponderTrackingScreen() {
         </View>
 
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

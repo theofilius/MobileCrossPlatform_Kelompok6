@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useDialog } from '../components/aegis/Dialog';
 
 // NOTE: This OTP screen is currently NOT part of the signup flow.
 // Signup now uses Supabase Auth (email + password) and email confirmation
@@ -10,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function OTPScreen() {
   const router = useRouter();
+  const dialog = useDialog();
   const [otp, setOtp] = useState(['', '', '', '']);
   const inputs = useRef<Array<TextInput | null>>([]);
 
@@ -33,11 +35,13 @@ export default function OTPScreen() {
   const handleConfirm = async () => {
     // OTP-based signup is disabled — signup now uses Supabase Auth
     // (email + password). This screen is a placeholder for future phone OTP.
-    Alert.alert(
-      'OTP belum tersedia',
-      'Pendaftaran sekarang menggunakan email dan kata sandi. Silakan masuk dengan akun email kamu.',
-      [{ text: 'OK', onPress: () => router.replace('/login' as any) }],
-    );
+    dialog.show({
+      type: 'info',
+      title: 'OTP belum tersedia',
+      body: 'Pendaftaran sekarang menggunakan email dan kata sandi. Silakan masuk dengan akun email kamu.',
+      primaryText: 'OK',
+      onPrimary: () => router.replace('/login' as any)
+    });
   };
 
   return (
@@ -79,6 +83,7 @@ export default function OTPScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

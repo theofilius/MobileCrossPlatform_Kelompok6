@@ -17,7 +17,7 @@ import {
   EMERGENCY_COLORS,
   EmergencyType,
   Report,
-  getReports,
+  listReports,
 } from '../../services/reportService';
 
 type FilterType = 'all' | EmergencyType;
@@ -33,9 +33,12 @@ const FILTERS: { key: FilterType; labelKey: TranslationKey }[] = [
 ];
 
 const STATUS_KEY: Record<Report['status'], TranslationKey> = {
-  pending: 'status_pending',
-  responded: 'status_responded',
-  resolved: 'status_resolved',
+  pending:   'status_pending',
+  accepted:  'status_responded',
+  ontheway:  'status_responded',
+  arrived:   'status_responded',
+  resolved:  'status_resolved',
+  cancelled: 'status_resolved',
 };
 
 const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
@@ -48,9 +51,12 @@ const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
 };
 
 const STATUS_COLOR: Record<Report['status'], string> = {
-  pending: '#F97316',
-  responded: '#3B82F6',
-  resolved: '#10B981',
+  pending:   '#F97316',
+  accepted:  '#3B82F6',
+  ontheway:  '#3B82F6',
+  arrived:   '#3B82F6',
+  resolved:  '#10B981',
+  cancelled: '#9CA3AF',
 };
 
 const TYPE_ICON: Record<EmergencyType, { icon: string; iconSet: 'material' | 'ionicons' }> = {
@@ -116,7 +122,7 @@ export default function CommunityScreen() {
   const [reports, setReports] = useState<Report[]>([]);
 
   useEffect(() => {
-    setReports(getReports());
+    listReports().then(setReports).catch(() => setReports([]));
   }, []);
 
   const filtered = filter === 'all' ? reports : reports.filter(r => r.type === filter);

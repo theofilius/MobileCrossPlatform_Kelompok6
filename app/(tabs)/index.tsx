@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
@@ -98,7 +98,11 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.logoBox}>
-                <MaterialCommunityIcons name="shield-cross" size={20} color="#0C4F8D" />
+                <Image
+                  source={require('../../assets/images/aegis-logo.png')}
+                  style={styles.logoImg}
+                  resizeMode="cover"
+                />
               </View>
               <View>
                 <Text style={styles.locationLabel}>{t('home_your_location')}</Text>
@@ -214,11 +218,13 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#EEF5FC',
+    backgroundColor: '#003B71',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    overflow: 'hidden',
   },
+  logoImg: { width: '100%', height: '100%' },
   locationLabel: { fontSize: 10, color: '#8D8E8E', fontWeight: '600' },
   locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   locationText: { fontSize: 12, color: '#003B71', fontWeight: '700', marginLeft: 2 },

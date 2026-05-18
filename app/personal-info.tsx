@@ -6,12 +6,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from './context/AuthContext';
 import { useLanguage } from './context/LanguageContext';
 import { useCamera } from '../hooks/useCamera';
+import { useDialog } from '../components/aegis/Dialog';
 
 export default function PersonalInfoScreen() {
   const router = useRouter();
   const { user, updateUser } = useContext(AuthContext);
   const { t } = useLanguage();
   const { capturePhoto, pickFromGallery } = useCamera();
+  const dialog = useDialog();
 
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -19,44 +21,47 @@ export default function PersonalInfoScreen() {
   const [photoUri, setPhotoUri] = useState<string | undefined>(user?.photoUri);
 
   const handlePickPhoto = () => {
-    Alert.alert(
-      t('pi_change_photo'),
-      t('pi_photo_source'),
-      [
-        {
-          text: t('pi_photo_camera'),
-          onPress: async () => {
-            const uri = await capturePhoto();
-            if (uri) {
-              setPhotoUri(uri);
-              updateUser({ photoUri: uri });
-            }
-          },
-        },
-        {
-          text: t('pi_photo_gallery'),
-          onPress: async () => {
-            const uri = await pickFromGallery();
-            if (uri) {
-              setPhotoUri(uri);
-              updateUser({ photoUri: uri });
-            }
-          },
-        },
-        { text: t('ec_cancel'), style: 'cancel' },
-      ],
-    );
+    dialog.show({
+      type: 'info',
+      title: t('pi_change_photo'),
+      body: t('pi_photo_source'),
+      primaryText: t('pi_photo_camera'),
+      secondaryText: t('pi_photo_gallery'),
+      onPrimary: async () => {
+        const uri = await capturePhoto();
+        if (uri) {
+          setPhotoUri(uri);
+          updateUser({ photoUri: uri });
+        }
+      },
+      onSecondary: async () => {
+        const uri = await pickFromGallery();
+        if (uri) {
+          setPhotoUri(uri);
+          updateUser({ photoUri: uri });
+        }
+      }
+    });
   };
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('!', t('pi_val_name'));
+      dialog.show({
+        type: 'error',
+        title: '!',
+        body: t('pi_val_name'),
+        primaryText: 'OK'
+      });
       return;
     }
     await updateUser({ name: name.trim(), phone: phone.trim(), email: email.trim(), photoUri });
-    Alert.alert(t('pi_success_title'), t('pi_success'), [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+    dialog.show({
+      type: 'success',
+      title: t('pi_success_title'),
+      body: t('pi_success'),
+      primaryText: 'OK',
+      onPrimary: () => router.back()
+    });
   };
 
   return (
@@ -134,6 +139,7 @@ export default function PersonalInfoScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

@@ -2,15 +2,22 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useDialog } from '../components/aegis/Dialog';
 
 export default function CompleteAccountScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const dialog = useDialog();
   const [phone, setPhone] = useState('');
 
   const handleSignUp = () => {
     if (!phone.trim()) {
-      Alert.alert('Validation', 'Please enter your phone number.');
+      dialog.show({
+        type: 'error',
+        title: 'Validation',
+        body: 'Please enter your phone number.',
+        primaryText: 'OK'
+      });
       return;
     }
     // Navigate to OTP screen with captured data
@@ -52,6 +59,7 @@ export default function CompleteAccountScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

@@ -3,15 +3,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getPrimaryContact } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
+import { useDialog } from '../components/aegis/Dialog';
 
 const EMERGENCY_FALLBACK = '112';
 
 export default function EmergencyActiveScreen() {
   const router = useRouter();
+  const dialog = useDialog();
   const [seconds, setSeconds] = useState(0);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -61,27 +63,23 @@ export default function EmergencyActiveScreen() {
     const primary = getPrimaryContact();
     const label = primary ? `${primary.name} (${phone})` : `${EMERGENCY_FALLBACK}`;
 
-    Alert.alert(
-      'Telepon Darurat',
-      `Hubungi ${label}?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Telepon',
-          style: 'destructive',
-          onPress: () => {
-            Linking.openURL(`tel:${phone}`).catch(() =>
-              Alert.alert('!', 'Tidak dapat melakukan panggilan.')
-            );
-            addNotification({
-              type: 'call',
-              title: 'Panggilan darurat',
-              body: `Menghubungi ${label}`,
-            });
-          },
-        },
-      ],
-    );
+    dialog.show({
+      type: 'confirm',
+      title: 'Telepon Darurat',
+      body: `Hubungi ${label}?`,
+      primaryText: 'Telepon',
+      secondaryText: 'Batal',
+      onPrimary: () => {
+        Linking.openURL(`tel:${phone}`).catch(() =>
+          dialog.show({ type: 'error', title: '!', body: 'Tidak dapat melakukan panggilan.', primaryText: 'OK' })
+        );
+        addNotification({
+          type: 'call',
+          title: 'Panggilan darurat',
+          body: `Menghubungi ${label}`,
+        });
+      }
+    });
   };
 
   const handleMessage = () => {
@@ -92,7 +90,7 @@ export default function EmergencyActiveScreen() {
     const sep = Platform.OS === 'ios' ? '&' : '?';
     const url = `sms:${phone}${sep}body=${body}`;
 
-    Linking.openURL(url).catch(() => Alert.alert('!', 'Tidak dapat membuka aplikasi pesan.'));
+    Linking.openURL(url).catch(() => dialog.show({ type: 'error', title: '!', body: 'Tidak dapat membuka aplikasi pesan.', primaryText: 'OK' }));
     addNotification({
       type: 'call',
       title: 'Pesan darurat',
@@ -102,11 +100,11 @@ export default function EmergencyActiveScreen() {
 
   const handleLocation = () => {
     if (!coords) {
-      Alert.alert('!', 'Lokasi belum tersedia. Tunggu beberapa detik.');
+      dialog.show({ type: 'info', title: '!', body: 'Lokasi belum tersedia. Tunggu beberapa detik.', primaryText: 'OK' });
       return;
     }
     const url = `https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}`;
-    Linking.openURL(url).catch(() => Alert.alert('!', 'Tidak dapat membuka peta.'));
+    Linking.openURL(url).catch(() => dialog.show({ type: 'error', title: '!', body: 'Tidak dapat membuka peta.', primaryText: 'OK' }));
   };
 
   const formatTime = (s: number) => {
@@ -116,14 +114,14 @@ export default function EmergencyActiveScreen() {
   };
 
   const handleCancel = () => {
-    Alert.alert(
-      'Batalkan Darurat?',
-      'Mode darurat akan dinonaktifkan dan kontak kamu akan diberitahu.',
-      [
-        { text: 'Tidak, tetap aktif', style: 'cancel' },
-        { text: 'Batalkan Darurat', style: 'destructive', onPress: () => router.back() },
-      ]
-    );
+    dialog.show({
+      type: 'warning',
+      title: 'Batalkan Darurat?',
+      body: 'Mode darurat akan dinonaktifkan dan kontak kamu akan diberitahu.',
+      primaryText: 'Batalkan Darurat',
+      secondaryText: 'Tidak, tetap aktif',
+      onPrimary: () => router.back()
+    });
   };
 
   return (
@@ -192,6 +190,7 @@ export default function EmergencyActiveScreen() {
         </View>
 
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useContext, useState } from 'react';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import {
   Alert,
@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCamera } from '../hooks/useCamera';
 import { useLocation } from '../hooks/useLocation';
 import { clearPendingAudio, getPendingAudio } from '../utils/pendingAudio';
+import { AuthContext } from './context/AuthContext';
 import { useLanguage } from './context/LanguageContext';
 import { TranslationKey } from '../translations';
 import {
@@ -28,6 +29,8 @@ import {
   EmergencyType,
   createReport,
 } from '../services/reportService';
+import { uploadToStorage } from '../services/mediaService';
+import { useDialog } from '../components/aegis/Dialog';
 
 const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
   fire: 'type_fire',
@@ -51,6 +54,8 @@ export default function ReportFormScreen() {
   const { coords, address, loading: locLoading, refresh: refreshLocation } = useLocation();
   const { capturePhoto, pickFromGallery } = useCamera();
   const { t } = useLanguage();
+  const { user } = useContext(AuthContext);
+  const dialog = useDialog();
 
   const [manualAddress, setManualAddress] = useState<string | null>(null);
   const [manualCoords, setManualCoords] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -85,11 +90,21 @@ export default function ReportFormScreen() {
       } else {
         // Couldn't resolve — still save the text but keep previous coords
         setManualAddress(trimmed);
-        Alert.alert('!', 'Lokasi tidak ditemukan di peta. Alamat tetap disimpan, tapi pin peta mungkin tidak akurat.');
+        dialog.show({
+          type: 'warning',
+          title: '!',
+          body: 'Lokasi tidak ditemukan di peta. Alamat tetap disimpan, tapi pin peta mungkin tidak akurat.',
+          primaryText: 'OK'
+        });
       }
     } catch {
       setManualAddress(trimmed);
-      Alert.alert('!', 'Gagal mencari lokasi. Coba lagi.');
+      dialog.show({
+        type: 'error',
+        title: '!',
+        body: 'Gagal mencari lokasi. Coba lagi.',
+        primaryText: 'OK'
+      });
     } finally {
       setGeocoding(false);
       setLocModalOpen(false);
@@ -117,11 +132,15 @@ export default function ReportFormScreen() {
   const typeLabel = t(TYPE_KEY[type]);
 
   const handlePhoto = () => {
-    Alert.alert(t('report_photo_title'), t('report_photo_source'), [
-      { text: t('report_camera'), onPress: async () => { const uri = await capturePhoto(); if (uri) setPhotoUri(uri); } },
-      { text: t('report_gallery'), onPress: async () => { const uri = await pickFromGallery(); if (uri) setPhotoUri(uri); } },
-      { text: t('report_cancel'), style: 'cancel' },
-    ]);
+    dialog.show({
+      type: 'info',
+      title: t('report_photo_title'),
+      body: t('report_photo_source'),
+      primaryText: t('report_camera'),
+      secondaryText: t('report_gallery'),
+      onPrimary: async () => { const uri = await capturePhoto(); if (uri) setPhotoUri(uri); },
+      onSecondary: async () => { const uri = await pickFromGallery(); if (uri) setPhotoUri(uri); },
+    });
   };
 
   const handleAudio = () => {
@@ -130,26 +149,47 @@ export default function ReportFormScreen() {
 
   const handleSubmit = async () => {
     if (!description.trim()) {
-      Alert.alert('!', t('report_val_desc'));
+      dialog.show({ type: 'error', title: '!', body: t('report_val_desc'), primaryText: 'OK' });
+      return;
+    }
+    if (!user?.id) {
+      dialog.show({ type: 'error', title: '!', body: 'Sesi tidak ditemukan. Silakan login ulang.', primaryText: 'OK' });
       return;
     }
     setSubmitting(true);
     try {
-      createReport({
+      // Upload media to Supabase Storage first so other users (petugas/admin)
+      // can fetch them. file:// URIs only exist on the reporter's device.
+      let photoUrl: string | null = null;
+      let audioUrl: string | null = null;
+      if (photoUri) photoUrl = await uploadToStorage(photoUri, 'photo', user.id);
+      if (audioUri) audioUrl = await uploadToStorage(audioUri, 'audio', user.id);
+
+      await createReport({
+        userId: user.id,
         type,
         description: description.trim(),
         latitude: displayCoords?.latitude ?? null,
         longitude: displayCoords?.longitude ?? null,
         address: displayAddress,
-        photoUri,
-        audioUri,
-        userId: undefined,
+        photoUri: photoUrl,
+        audioUri: audioUrl,
+        priority: type === 'fire' || type === 'medical' ? 'critical' : 'high',
       });
-      Alert.alert(
-        t('report_success_title'),
-        t('report_success_msg'),
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)' as any) }]
-      );
+      dialog.show({
+        type: 'success',
+        title: t('report_success_title'),
+        body: t('report_success_msg'),
+        primaryText: 'Lihat Beranda',
+        onPrimary: () => router.replace('/(tabs)' as any),
+      });
+    } catch (e: any) {
+      dialog.show({
+        type: 'error',
+        title: 'Gagal mengirim laporan',
+        body: e?.message ?? 'Terjadi kesalahan. Silakan coba lagi.',
+        primaryText: 'Mengerti',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -368,6 +408,7 @@ export default function ReportFormScreen() {
         </Modal>
 
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from './context/LanguageContext';
 import { deleteAllContacts } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
+import { useDialog } from '../components/aegis/Dialog';
 
 type RowProps = {
   icon: string;
@@ -45,6 +46,7 @@ function ToggleRow({ icon, iconSet = 'mat', title, subtitle, value, onValueChang
 export default function PrivacySecurityScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const dialog = useDialog();
 
   const [locationOn, setLocationOn] = useState(true);
   const [notifOn, setNotifOn] = useState(true);
@@ -53,26 +55,27 @@ export default function PrivacySecurityScreen() {
   const [pinEdit, setPinEdit] = useState(false);
 
   const handleDeleteAll = () => {
-    Alert.alert(
-      t('ps_delete_confirm_title'),
-      t('ps_delete_confirm_msg'),
-      [
-        { text: t('ec_cancel'), style: 'cancel' },
-        {
-          text: t('ec_delete'),
-          style: 'destructive',
-          onPress: () => {
-            deleteAllContacts();
-            addNotification({
-              type: 'security',
-              title: t('ps_delete_btn'),
-              body: t('ps_deleted'),
-            });
-            Alert.alert('!', t('ps_deleted'));
-          },
-        },
-      ],
-    );
+    dialog.show({
+      type: 'warning',
+      title: t('ps_delete_confirm_title'),
+      body: t('ps_delete_confirm_msg'),
+      primaryText: t('ec_delete'),
+      secondaryText: t('ec_cancel'),
+      onPrimary: () => {
+        deleteAllContacts();
+        addNotification({
+          type: 'security',
+          title: t('ps_delete_btn'),
+          body: t('ps_deleted'),
+        });
+        dialog.show({
+          type: 'success',
+          title: '!',
+          body: t('ps_deleted'),
+          primaryText: 'OK',
+        });
+      },
+    });
   };
 
   return (
@@ -155,6 +158,7 @@ export default function PrivacySecurityScreen() {
 
         </ScrollView>
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }
