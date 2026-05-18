@@ -1,32 +1,68 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from '../context/LanguageContext';
 import { EmergencyType } from '../../services/reportService';
 import { TranslationKey } from '../../translations';
+import { useLanguage } from '../context/LanguageContext';
 
+// ==========================================
+// 🛠️ STEP 1 & 2: REGISTRY & DYNAMIC ICON
+// ==========================================
+type IconFamily = 'ionicon' | 'material' | 'fontawesome5' | 'feather';
+
+const ICON_COMPONENTS: Record<IconFamily, React.ComponentType<any>> = {
+  ionicon: Ionicons,
+  material: MaterialCommunityIcons,
+  fontawesome5: FontAwesome5,
+  feather: Feather,
+};
+
+type DynamicIconProps = {
+  family: IconFamily;
+  name: string;
+  size: number;
+  color: string;
+};
+
+function DynamicIcon({ family, name, size, color }: DynamicIconProps) {
+  const IconComponent = ICON_COMPONENTS[family];
+
+  if (!IconComponent) {
+    console.warn(`[DynamicIcon] Family tidak dikenal: "${family}"`);
+    return null;
+  }
+
+  return <IconComponent name={name} size={size} color={color} />;
+}
+
+// ==========================================
+// 🗃️ DATA CATEGORY
+// ==========================================
 type Category = {
   type: EmergencyType;
   labelKey: TranslationKey;
   subKey: TranslationKey;
   icon: string;
-  iconSet: 'material' | 'ionicon';
+  family: IconFamily; 
   color: string;
   bg: string;
 };
 
 const CATEGORIES: Category[] = [
-  { type: 'fire', labelKey: 'sos_fire', subKey: 'sos_fire_sub', icon: 'fire', iconSet: 'material', color: '#DC2626', bg: '#FEF2F2' },
-  { type: 'accident', labelKey: 'sos_accident', subKey: 'sos_accident_sub', icon: 'car-crash', iconSet: 'material', color: '#EA580C', bg: '#FFF7ED' },
-  { type: 'crime', labelKey: 'sos_crime', subKey: 'sos_crime_sub', icon: 'shield-alert', iconSet: 'material', color: '#7C3AED', bg: '#F5F3FF' },
-  { type: 'disaster', labelKey: 'sos_disaster', subKey: 'sos_disaster_sub', icon: 'weather-lightning-rainy', iconSet: 'material', color: '#2563EB', bg: '#EFF6FF' },
-  { type: 'medical', labelKey: 'sos_medical', subKey: 'sos_medical_sub', icon: 'medical-bag', iconSet: 'material', color: '#059669', bg: '#F0FDF4' },
-  { type: 'other', labelKey: 'sos_other', subKey: 'sos_other_sub', icon: 'alert-circle-outline', iconSet: 'ionicon', color: '#4B5563', bg: '#F9FAFB' },
+  { type: 'fire', labelKey: 'sos_fire', subKey: 'sos_fire_sub', icon: 'fire', family: 'material', color: '#DC2626', bg: '#FEF2F2' },
+  { type: 'accident', labelKey: 'sos_accident', subKey: 'sos_accident_sub', icon: 'car-crash', family: 'fontawesome5', color: '#EA580C', bg: '#FFF7ED' },
+  { type: 'crime', labelKey: 'sos_crime', subKey: 'sos_crime_sub', icon: 'user-secret', family: 'fontawesome5', color: '#7C3AED', bg: '#F5F3FF' },
+  { type: 'disaster', labelKey: 'sos_disaster', subKey: 'sos_disaster_sub', icon: 'weather-lightning-rainy', family: 'material', color: '#2563EB', bg: '#EFF6FF' },
+  { type: 'medical', labelKey: 'sos_medical', subKey: 'sos_medical_sub', icon: 'medical', family: 'ionicon', color: '#059669', bg: '#F0FDF4' },
+  { type: 'other', labelKey: 'sos_other', subKey: 'sos_other_sub', icon: 'alert-circle-outline', family: 'ionicon', color: '#4B5563', bg: '#F9FAFB' },
 ];
 
+// ==========================================
+// 📱 MAIN COMPONENT
+// ==========================================
 export default function SOSScreen() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -36,17 +72,18 @@ export default function SOSScreen() {
   };
 
   const quickNumbers = useMemo(() => [
-    { label: t('sos_police'), number: '110', icon: 'shield-checkmark', color: '#2563EB' },
-    { label: t('sos_ambulance'), number: '119', icon: 'medical', color: '#059669' },
-    { label: t('sos_fire_dept'), number: '113', icon: 'flame', color: '#DC2626' },
-    { label: t('sos_sar'), number: '115', icon: 'boat', color: '#7C3AED' },
+    { label: t('sos_police'), number: '110', icon: 'police-badge', family: 'material' as IconFamily, color: '#2563EB' },
+    { label: t('sos_ambulance'), number: '119', icon: 'medical-bag', family: 'material' as IconFamily, color: '#059669' },
+    { label: t('sos_fire_dept'), number: '113', icon: 'fire-extinguisher', family: 'fontawesome5' as IconFamily, color: '#DC2626' },
+    { label: t('sos_sar'), number: '115', icon: 'ship', family: 'fontawesome5' as IconFamily, color: '#7C3AED' },
   ], [t]);
 
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
+        
+        {/* ✨ AREA STICKY (TETAP MENGAMBANG DI ATAS) ✨ */}
+        <View style={styles.stickyArea}>
           <View style={styles.header}>
             <Text style={styles.title}>{t('sos_title')}</Text>
             <Text style={styles.subtitle}>{t('sos_subtitle')}</Text>
@@ -65,7 +102,11 @@ export default function SOSScreen() {
               <Text style={styles.callBtnText}>{t('sos_call')}</Text>
             </TouchableOpacity>
           </View>
+        </View>
 
+        {/* 📜 AREA YANG BISA DI-SCROLL 📜 */}
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          
           <Text style={styles.sectionLabel}>{t('sos_category')}</Text>
           <View style={styles.grid}>
             {CATEGORIES.map(cat => (
@@ -76,11 +117,7 @@ export default function SOSScreen() {
                 activeOpacity={0.75}
               >
                 <View style={[styles.iconBox, { backgroundColor: cat.color + '18' }]}>
-                  {cat.iconSet === 'material' ? (
-                    <MaterialCommunityIcons name={cat.icon as any} size={28} color={cat.color} />
-                  ) : (
-                    <Ionicons name={cat.icon as any} size={28} color={cat.color} />
-                  )}
+                  <DynamicIcon family={cat.family} name={cat.icon} size={28} color={cat.color} />
                 </View>
                 <Text style={[styles.cardLabel, { color: cat.color }]}>{t(cat.labelKey)}</Text>
                 <Text style={styles.cardSub}>{t(cat.subKey)}</Text>
@@ -96,7 +133,7 @@ export default function SOSScreen() {
             {quickNumbers.map(item => (
               <TouchableOpacity key={item.number} style={styles.numberRow}>
                 <View style={[styles.numberIcon, { backgroundColor: item.color + '15' }]}>
-                  <Ionicons name={item.icon as any} size={18} color={item.color} />
+                  <DynamicIcon family={item.family} name={item.icon} size={18} color={item.color} />
                 </View>
                 <View style={styles.numberInfo}>
                   <Text style={styles.numberLabel}>{item.label}</Text>
@@ -116,14 +153,28 @@ export default function SOSScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
+  // Tambahan style untuk area yang diam (sticky)
+  stickyArea: { 
+    paddingHorizontal: 20, 
+    paddingTop: 8,
+    // Menambahkan bayangan halus agar terlihat terpisah dari area scroll
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  // Mengurangi paddingTop karena Header & Banner sudah dipindah ke atas
+  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 },
   header: { marginBottom: 16 },
   title: { fontSize: 22, fontWeight: '800', color: '#003B71', marginBottom: 4 },
   subtitle: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
   emergencyBanner: {
     backgroundColor: '#003B71', borderRadius: 16, padding: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16, // Sedikit dikurangi agar jarak dengan konten scroll lebih pas
   },
   bannerLeft: { flexDirection: 'row', alignItems: 'center' },
   bannerLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useContext, useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+import { SOSProvider } from '../app/context/SOSContext';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthContext, AuthProvider } from './context/AuthContext';
@@ -55,30 +56,32 @@ export default function RootLayout() {
         <SocketProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <AuthGate>
-              <Stack>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="login" options={{ headerShown: false }} />
-                <Stack.Screen name="signup" options={{ headerShown: false }} />
-                <Stack.Screen name="otp" options={{ headerShown: false }} />
-                <Stack.Screen name="location-permission" options={{ headerShown: false }} />
-                <Stack.Screen name="personal-info" options={{ headerShown: false }} />
-                <Stack.Screen name="emergency-active" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-                <Stack.Screen name="report-form" options={{ headerShown: false }} />
-                <Stack.Screen name="camera-capture" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-                <Stack.Screen name="audio-recording" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-                <Stack.Screen name="report-history" options={{ headerShown: false }} />
-                <Stack.Screen name="report-detail" options={{ headerShown: false }} />
-                <Stack.Screen name="chat" options={{ headerShown: false }} />
-                <Stack.Screen name="emergency-contacts" options={{ headerShown: false }} />
-                <Stack.Screen name="notifications" options={{ headerShown: false }} />
-                <Stack.Screen name="privacy-security" options={{ headerShown: false }} />
-                <Stack.Screen name="help-support" options={{ headerShown: false }} />
-                <Stack.Screen name="responder-tracking" options={{ headerShown: false }} />
-                <Stack.Screen name="first-aid" options={{ headerShown: false }} />
-                <Stack.Screen name="disaster" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-              </Stack>
+              <SOSProvider> {/* menambahkan button yang tersinkronisasi dengan sos di homepage */}
+                <Stack>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="login" options={{ headerShown: false }} />
+                  <Stack.Screen name="signup" options={{ headerShown: false }} />
+                  <Stack.Screen name="otp" options={{ headerShown: false }} />
+                  <Stack.Screen name="location-permission" options={{ headerShown: false }} />
+                  <Stack.Screen name="personal-info" options={{ headerShown: false }} />
+                  <Stack.Screen name="emergency-active" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                  <Stack.Screen name="report-form" options={{ headerShown: false }} />
+                  <Stack.Screen name="camera-capture" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                  <Stack.Screen name="audio-recording" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                  <Stack.Screen name="report-history" options={{ headerShown: false }} />
+                  <Stack.Screen name="report-detail" options={{ headerShown: false }} />
+                  <Stack.Screen name="chat" options={{ headerShown: false }} />
+                  <Stack.Screen name="emergency-contacts" options={{ headerShown: false }} />
+                  <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                  <Stack.Screen name="privacy-security" options={{ headerShown: false }} />
+                  <Stack.Screen name="help-support" options={{ headerShown: false }} />
+                  <Stack.Screen name="responder-tracking" options={{ headerShown: false }} />
+                  <Stack.Screen name="first-aid" options={{ headerShown: false }} />
+                  <Stack.Screen name="disaster" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                </Stack>
+              </SOSProvider>
             </AuthGate>
             <StatusBar style="auto" />
           </ThemeProvider>
