@@ -1,17 +1,18 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
-import { SOSProvider } from '../app/context/SOSContext';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ChatNotificationOverlay } from '@/components/aegis/ChatNotificationOverlay';
 import { AuthContext, AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { ReportsProvider } from '@/context/ReportsContext';
 import { SocketProvider } from '@/context/SocketContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+// ✅ Import SOSProvider dari folder context yang sudah kamu pindahkan
+import { SOSProvider } from '../context/SOSContext';
 
 // Public routes — accessible without a session
 const PUBLIC_ROUTES = new Set(['index', 'login', 'signup', 'otp', 'loading']);
@@ -100,8 +101,6 @@ function BrandedSplash() {
             onError={() => setImageFailed(true)}
           />
         ) : (
-          // Fallback when the asset can't be bundled (e.g. Metro stale cache).
-          // Still renders branded text so the screen never looks empty.
           <View style={styles.splashLogoFallback}>
             <Text style={styles.splashAppName}>AEGIS</Text>
             <Text style={styles.splashAppName}>CALL</Text>
@@ -120,58 +119,45 @@ export default function RootLayout() {
     <LanguageProvider>
       <AuthProvider>
         <SocketProvider>
-<<<<<<< HEAD
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <AuthGate>
-              {/* menambahkan button yang tersinkronisasi dengan sos di homepage */}
-              <SOSProvider>
-=======
+          {/* ✅ ReportsProvider milik temanmu */}
           <ReportsProvider>
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <AuthGate>
->>>>>>> main
-                <Stack>
-                  <Stack.Screen name="index" options={{ headerShown: false }} />
-                  <Stack.Screen name="login" options={{ headerShown: false }} />
-                  <Stack.Screen name="signup" options={{ headerShown: false }} />
-                  <Stack.Screen name="otp" options={{ headerShown: false }} />
-                  <Stack.Screen name="location-permission" options={{ headerShown: false }} />
-                  <Stack.Screen name="personal-info" options={{ headerShown: false }} />
-                  <Stack.Screen name="emergency-active" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-                  <Stack.Screen name="report-form" options={{ headerShown: false }} />
-                  <Stack.Screen name="camera-capture" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-                  <Stack.Screen name="audio-recording" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-                  <Stack.Screen name="report-history" options={{ headerShown: false }} />
-                  <Stack.Screen name="report-detail" options={{ headerShown: false }} />
-<<<<<<< HEAD
-=======
-                  <Stack.Screen name="report-chat" options={{ headerShown: false }} />
->>>>>>> main
-                  <Stack.Screen name="chat" options={{ headerShown: false }} />
-                  <Stack.Screen name="emergency-contacts" options={{ headerShown: false }} />
-                  <Stack.Screen name="notifications" options={{ headerShown: false }} />
-                  <Stack.Screen name="privacy-security" options={{ headerShown: false }} />
-                  <Stack.Screen name="help-support" options={{ headerShown: false }} />
-                  <Stack.Screen name="responder-tracking" options={{ headerShown: false }} />
-                  <Stack.Screen name="first-aid" options={{ headerShown: false }} />
-                  <Stack.Screen name="disaster" options={{ headerShown: false }} />
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-<<<<<<< HEAD
-                  <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-                </Stack>
-              </SOSProvider>
-            </AuthGate>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-=======
-                  <Stack.Screen name="(petugas)" options={{ headerShown: false }} />
-                  <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-                </Stack>
+                {/* ✅ SOSProvider milikmu, bekerja harmonis bersama! */}
+                <SOSProvider>
+                  <Stack>
+                    <Stack.Screen name="index" options={{ headerShown: false }} />
+                    <Stack.Screen name="login" options={{ headerShown: false }} />
+                    <Stack.Screen name="signup" options={{ headerShown: false }} />
+                    <Stack.Screen name="otp" options={{ headerShown: false }} />
+                    <Stack.Screen name="location-permission" options={{ headerShown: false }} />
+                    <Stack.Screen name="personal-info" options={{ headerShown: false }} />
+                    <Stack.Screen name="emergency-active" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                    <Stack.Screen name="report-form" options={{ headerShown: false }} />
+                    <Stack.Screen name="camera-capture" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                    <Stack.Screen name="audio-recording" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                    <Stack.Screen name="report-history" options={{ headerShown: false }} />
+                    <Stack.Screen name="report-detail" options={{ headerShown: false }} />
+                    {/* ✅ Halaman report-chat dari temanmu */}
+                    <Stack.Screen name="report-chat" options={{ headerShown: false }} />
+                    <Stack.Screen name="chat" options={{ headerShown: false }} />
+                    <Stack.Screen name="emergency-contacts" options={{ headerShown: false }} />
+                    <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                    <Stack.Screen name="privacy-security" options={{ headerShown: false }} />
+                    <Stack.Screen name="help-support" options={{ headerShown: false }} />
+                    <Stack.Screen name="responder-tracking" options={{ headerShown: false }} />
+                    <Stack.Screen name="first-aid" options={{ headerShown: false }} />
+                    <Stack.Screen name="disaster" options={{ headerShown: false }} />
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    {/* ✅ Halaman petugas dari temanmu */}
+                    <Stack.Screen name="(petugas)" options={{ headerShown: false }} />
+                    <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                  </Stack>
+                </SOSProvider>
               </AuthGate>
               <StatusBar style="auto" />
             </ThemeProvider>
           </ReportsProvider>
->>>>>>> main
         </SocketProvider>
       </AuthProvider>
     </LanguageProvider>
