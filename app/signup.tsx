@@ -1,4 +1,4 @@
-import { AntDesign, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
 import React, { useContext, useState } from 'react';
@@ -16,10 +16,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { validateEmail, validateName, validatePassword, validatePhone } from '@/utils/auth';
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { signUp } = useContext(AuthContext);
+  const { signUp, signInWithGoogle } = useContext(AuthContext);
   const { t, language } = useLanguage();
 
   const [name, setName] = useState('');
@@ -28,11 +29,11 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const canSubmit =
-    !submitting &&
+    !submitting && !googleLoading &&
     name.trim().length > 0 &&
     email.trim().length > 0 &&
     phone.trim().length > 0 &&
@@ -41,20 +42,31 @@ export default function SignUpScreen() {
 
   const handleSubmit = async () => {
     setErrorMessage(null);
-    setInfoMessage(null);
 
-    if (!name.trim()) { setErrorMessage(t('val_name')); return; }
-    if (!email.trim()) { setErrorMessage(t('val_email')); return; }
-    if (!phone.trim()) { setErrorMessage(t('val_phone')); return; }
-    if (!password.trim()) { setErrorMessage(t('val_password')); return; }
-    if (password !== confirmPassword) { setErrorMessage(t('val_confirm')); return; }
-    if (password.length < 6) {
-      setErrorMessage(language === 'id' ? 'Kata sandi minimal 6 karakter.' : 'Password must be at least 6 characters.');
+    const nameRes = validateName(name);
+    if (!nameRes.ok) { setErrorMessage(nameRes.error); return; }
+
+    const emailRes = validateEmail(email);
+    if (!emailRes.ok) { setErrorMessage(emailRes.error); return; }
+
+    const phoneRes = validatePhone(phone);
+    if (!phoneRes.ok) { setErrorMessage(phoneRes.error); return; }
+
+    const pwRes = validatePassword(password);
+    if (!pwRes.ok) { setErrorMessage(pwRes.error); return; }
+
+    if (password !== confirmPassword) {
+      setErrorMessage(language === 'id' ? 'Konfirmasi kata sandi tidak cocok.' : 'Password confirmation does not match.');
       return;
     }
 
     setSubmitting(true);
-    const result = await signUp({ email, password, name, phone });
+    const result = await signUp({
+      email: emailRes.value,
+      password: pwRes.value,
+      name: nameRes.value,
+      phone: phoneRes.value,
+    });
     setSubmitting(false);
 
     if (!result.ok) {
@@ -63,18 +75,21 @@ export default function SignUpScreen() {
     }
 
     if (result.needsEmailConfirmation) {
-      // Email confirmation is enabled in Supabase project settings.
-      setInfoMessage(
-        language === 'id'
-          ? 'Akun berhasil dibuat. Periksa email kamu untuk konfirmasi sebelum masuk.'
-          : 'Account created. Please check your email to confirm before signing in.',
-      );
-      setTimeout(() => router.replace('/login' as any), 2500);
+      router.push({
+        pathname: '/otp' as any,
+        params: { email: emailRes.value },
+      });
       return;
     }
+    // Confirmation disabled in Supabase → session is already live → AuthGate routes.
+  };
 
-    // Session created → route guard will redirect to home automatically
-    setInfoMessage(language === 'id' ? 'Pendaftaran berhasil!' : 'Sign up successful!');
+  const handleGoogle = async () => {
+    setErrorMessage(null);
+    setGoogleLoading(true);
+    const result = await signInWithGoogle();
+    setGoogleLoading(false);
+    if (!result.ok && !result.canceled) setErrorMessage(result.error);
   };
 
   return (
@@ -88,7 +103,11 @@ export default function SignUpScreen() {
 
             <View style={styles.header}>
               <Text style={styles.title}>{t('signup_title')}</Text>
-              <Text style={styles.subtitle}>{t('signup_subtitle')}</Text>
+              <Text style={styles.subtitle}>
+                {language === 'id'
+                  ? 'Buat akun dengan email + kata sandi. Verifikasi email lewat kode 6 digit.'
+                  : 'Create an account with email + password. Verify your email with a 6-digit code.'}
+              </Text>
             </View>
 
             <View style={styles.form}>
@@ -98,7 +117,7 @@ export default function SignUpScreen() {
                 placeholderTextColor="#8D8E8E"
                 value={name}
                 onChangeText={(v) => { setName(v); setErrorMessage(null); }}
-                editable={!submitting}
+                editable={!submitting && !googleLoading}
               />
               <TextInput
                 style={styles.input}
@@ -109,49 +128,42 @@ export default function SignUpScreen() {
                 autoCorrect={false}
                 value={email}
                 onChangeText={(v) => { setEmail(v); setErrorMessage(null); }}
-                editable={!submitting}
+                editable={!submitting && !googleLoading}
               />
               <TextInput
                 style={styles.input}
-                placeholder={t('signup_phone')}
+                placeholder={language === 'id' ? 'No. HP (mis. 0812xxx atau +62812xxx)' : 'Phone (e.g. +62812xxx)'}
                 placeholderTextColor="#8D8E8E"
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={(v) => { setPhone(v); setErrorMessage(null); }}
-                editable={!submitting}
+                editable={!submitting && !googleLoading}
               />
               <TextInput
                 style={styles.input}
-                placeholder={t('signup_password')}
+                placeholder={language === 'id' ? 'Kata sandi (min. 6 karakter)' : 'Password (min. 6 chars)'}
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
                 autoCapitalize="none"
                 value={password}
                 onChangeText={(v) => { setPassword(v); setErrorMessage(null); }}
-                editable={!submitting}
+                editable={!submitting && !googleLoading}
               />
               <TextInput
                 style={styles.input}
-                placeholder={t('signup_confirm')}
+                placeholder={language === 'id' ? 'Ulangi kata sandi' : 'Confirm password'}
                 placeholderTextColor="#8D8E8E"
                 secureTextEntry
                 autoCapitalize="none"
                 value={confirmPassword}
                 onChangeText={(v) => { setConfirmPassword(v); setErrorMessage(null); }}
-                editable={!submitting}
+                editable={!submitting && !googleLoading}
               />
 
               {errorMessage && (
                 <View style={styles.errorBox}>
                   <Ionicons name="alert-circle" size={16} color="#DC2626" />
                   <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
-              )}
-
-              {infoMessage && (
-                <View style={styles.infoBox}>
-                  <Ionicons name="checkmark-circle" size={16} color="#059669" />
-                  <Text style={styles.infoText}>{infoMessage}</Text>
                 </View>
               )}
 
@@ -168,7 +180,7 @@ export default function SignUpScreen() {
               </TouchableOpacity>
 
               <Link href="/login" asChild>
-                <TouchableOpacity style={styles.loginLinkButton} disabled={submitting}>
+                <TouchableOpacity style={styles.loginLinkButton} disabled={submitting || googleLoading}>
                   <Text style={styles.loginLinkText}>{t('signup_have_account')} {t('signup_login')}</Text>
                 </TouchableOpacity>
               </Link>
@@ -181,17 +193,22 @@ export default function SignUpScreen() {
                 <View style={styles.divider} />
               </View>
 
-              <View style={styles.socialButtons}>
-                <TouchableOpacity style={styles.socialIcon} disabled={submitting}>
-                  <AntDesign name="google" size={24} color="#000" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialIcon} disabled={submitting}>
-                  <FontAwesome5 name="facebook" size={24} color="#1877F2" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialIcon} disabled={submitting}>
-                  <AntDesign name="apple" size={24} color="#000" />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[styles.googleButton, (submitting || googleLoading) && styles.googleButtonDisabled]}
+                onPress={handleGoogle}
+                disabled={submitting || googleLoading}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color="#003B71" />
+                ) : (
+                  <>
+                    <AntDesign name="google" size={20} color="#003B71" />
+                    <Text style={styles.googleButtonText}>
+                      {language === 'id' ? 'Lanjutkan dengan Google' : 'Continue with Google'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
 
           </ScrollView>
@@ -211,16 +228,16 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 40,
   },
-  header: { alignItems: 'center', marginBottom: 32 },
+  header: { alignItems: 'center', marginBottom: 24 },
   title: { fontSize: 28, fontWeight: '800', color: '#003B71', marginBottom: 10 },
   subtitle: { fontSize: 14, fontWeight: '500', color: '#4A6B8A', textAlign: 'center', lineHeight: 20 },
   form: { flex: 1 },
   input: {
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
-    marginBottom: 14,
+    marginBottom: 12,
     paddingHorizontal: 16,
-    height: 52,
+    height: 50,
     fontSize: 15,
     color: '#000000',
     borderWidth: 1,
@@ -238,18 +255,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   errorText: { flex: 1, fontSize: 13, color: '#991B1B', lineHeight: 18 },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-  },
-  infoText: { flex: 1, fontSize: 13, color: '#065F46', lineHeight: 18 },
   nextButton: {
     backgroundColor: '#003B71',
     borderRadius: 10,
@@ -266,19 +271,23 @@ const styles = StyleSheet.create({
   },
   nextButtonDisabled: { backgroundColor: '#9CA3AF', shadowOpacity: 0 },
   nextButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  loginLinkButton: { height: 48, justifyContent: 'center', alignItems: 'center', marginBottom: 32 },
+  loginLinkButton: { height: 48, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
   loginLinkText: { color: '#003B71', fontSize: 14, fontWeight: '600' },
   socialSection: { marginTop: 'auto' },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   divider: { flex: 1, height: 1, backgroundColor: '#D1D5DB' },
   dividerText: { marginHorizontal: 14, color: '#6B7280', fontSize: 13, fontWeight: '500' },
-  socialButtons: { flexDirection: 'row', justifyContent: 'center', gap: 24 },
-  socialIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
+  googleButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#003B71',
+    backgroundColor: '#FFFFFF',
   },
+  googleButtonDisabled: { opacity: 0.6 },
+  googleButtonText: { color: '#003B71', fontSize: 15, fontWeight: '700' },
 });

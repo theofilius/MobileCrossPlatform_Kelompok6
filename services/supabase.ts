@@ -1,3 +1,8 @@
+// Polyfill global.crypto.getRandomValues for the PKCE code_verifier.
+// Must be imported BEFORE @supabase/supabase-js. Without this, Supabase
+// would warn "WebCrypto API is not supported" and fall back to a weak source.
+import 'react-native-get-random-values';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
@@ -17,6 +22,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
+    // detectSessionInUrl is for browser apps; in RN we manually exchange
+    // the OAuth `?code=` we receive on the deep-link redirect.
     detectSessionInUrl: false,
+    // PKCE is mandatory for OAuth flows in native apps — the server returns
+    // a one-time `code` we exchange via exchangeCodeForSession.
+    flowType: 'pkce',
   },
 });

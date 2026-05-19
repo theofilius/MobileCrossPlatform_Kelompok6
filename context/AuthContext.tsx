@@ -1,6 +1,7 @@
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useEffect, useState } from 'react';
 import { supabase } from '@/services/supabase';
+import { signInWithGoogle as oauthSignInWithGoogle, type OAuthResult } from '@/services/oauthService';
 
 export type UserRole = 'user' | 'petugas' | 'admin';
 
@@ -13,8 +14,7 @@ export type User = {
   role: UserRole;
 };
 
-export type SignInResult = { ok: true } | { ok: false; error: string };
-
+export type AuthOpResult = { ok: true } | { ok: false; error: string };
 export type SignUpResult =
   | { ok: true; needsEmailConfirmation: boolean }
   | { ok: false; error: string };
@@ -23,14 +23,33 @@ type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<SignInResult>;
+  // Login: email + password (signInWithPassword).
+  signIn: (email: string, password: string) => Promise<AuthOpResult>;
+  // Signup: creates an unconfirmed user; Supabase emails a 6-digit OTP.
   signUp: (params: { email: string; password: string; name: string; phone: string }) => Promise<SignUpResult>;
+  // Verify the OTP from the signup email.
+  verifyEmailOtp: (email: string, token: string) => Promise<AuthOpResult>;
+  // Resend the signup OTP (used on the OTP screen).
+  resendSignupOtp: (email: string) => Promise<AuthOpResult>;
+  // Google OAuth via system browser.
+  signInWithGoogle: () => Promise<OAuthResult>;
   signOut: () => Promise<void>;
   updateUser: (data: Partial<Omit<User, 'id'>>) => Promise<void>;
 };
 
-// Generic error message — do NOT leak whether an email is registered
 const GENERIC_AUTH_ERROR = 'Email atau kata sandi salah, atau akun belum terdaftar.';
+
+// Wrap any auth promise with a hard timeout so a stuck network call never
+// leaves the UI hanging on a spinner.
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timeout setelah ${ms / 1000}s`)), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -38,6 +57,9 @@ export const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   signIn: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
   signUp: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
+  verifyEmailOtp: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
+  resendSignupOtp: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
+  signInWithGoogle: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
   signOut: async () => {},
   updateUser: async () => {},
 });
@@ -50,10 +72,8 @@ async function fetchProfile(userId: string): Promise<Partial<User>> {
     .maybeSingle();
 
   if (error || !data) return {};
-  // Guard the role value — anything outside the allowed set is treated as 'user'.
   const rawRole = (data as { role?: string }).role;
-  const role: UserRole =
-    rawRole === 'petugas' || rawRole === 'admin' ? rawRole : 'user';
+  const role: UserRole = rawRole === 'petugas' || rawRole === 'admin' ? rawRole : 'user';
 
   return {
     name: data.name,
@@ -80,13 +100,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate session on app start + subscribe to auth changes
   useEffect(() => {
     let mounted = true;
-
-    // Watchdog: if anything blocks for too long (e.g. cold-start after iOS
-    // killed the app while another app was foregrounded, slow AsyncStorage),
-    // release the loading gate so the user isn't stuck on a spinner forever.
     const watchdog = setTimeout(() => {
       if (mounted) setIsLoading(false);
     }, 1500);
@@ -99,17 +114,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         existing = data.session;
         if (!mounted) return;
         setSession(existing);
-
-        if (existing) {
-          // Seed user immediately from the session so AuthGate stops blocking
-          // the UI behind a profiles network round-trip. Profile fields
-          // (name, phone, role, photo) are filled in once fetchProfile resolves.
-          setUser(buildUser(existing, {}));
-        }
+        if (existing) setUser(buildUser(existing, {}));
       } catch (err: any) {
-        // Common case: stored refresh token is missing/expired/corrupted.
-        // Supabase throws `AuthApiError: Invalid Refresh Token: Refresh Token Not Found`.
-        // Clear the broken state silently so AuthGate routes the user to /login.
         console.warn('[auth] session hydration failed:', err?.message ?? err);
         try { await supabase.auth.signOut(); } catch { /* ignore */ }
         if (mounted) {
@@ -130,7 +136,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!mounted) return;
         setUser(buildUser(existing, profile));
       } catch (err: any) {
-        // Profile enrichment is non-critical; keep the session active.
         console.warn('[auth] fetchProfile failed:', err?.message ?? err);
       }
     })();
@@ -139,7 +144,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         setSession(newSession);
         if (newSession) {
-          // Seed first so role-based routing has something to work with.
           setUser(buildUser(newSession, {}));
           const profile = await fetchProfile(newSession.user.id);
           setUser(buildUser(newSession, profile));
@@ -158,17 +162,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const signIn = async (email: string, password: string): Promise<SignInResult> => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
-    if (error) {
-      console.warn('[auth] signIn error:', error.message);
-      return { ok: false, error: GENERIC_AUTH_ERROR };
+  const signIn = async (email: string, password: string): Promise<AuthOpResult> => {
+    try {
+      console.log('[auth] signIn start:', email);
+      const startedAt = Date.now();
+      const { error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }),
+        15000,
+        'signIn',
+      );
+      console.log('[auth] signIn done in', Date.now() - startedAt, 'ms');
+      if (error) {
+        console.warn('[auth] signIn error:', error.message);
+        const msg = error.message.toLowerCase();
+        if (msg.includes('not confirmed') || msg.includes('email not')) {
+          return { ok: false, error: 'Email belum diverifikasi. Cek kotak masuk untuk kode verifikasi.' };
+        }
+        return { ok: false, error: GENERIC_AUTH_ERROR };
+      }
+      return { ok: true };
+    } catch (e: any) {
+      console.warn('[auth] signIn threw:', e?.message ?? e);
+      return { ok: false, error: e?.message?.includes('timeout')
+        ? 'Server tidak merespons. Cek koneksi internet atau coba lagi.'
+        : GENERIC_AUTH_ERROR };
     }
-    // onAuthStateChange will populate session + user
-    return { ok: true };
   };
 
   const signUp = async ({
@@ -176,42 +194,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     password,
     name,
     phone,
-  }: {
-    email: string;
-    password: string;
-    name: string;
-    phone: string;
-  }): Promise<SignUpResult> => {
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password,
-      options: {
-        // Stored as raw_user_meta_data — handle_new_user trigger reads from here
-        data: { name: name.trim(), phone: phone.trim() },
-      },
-    });
-    if (error) {
-      console.warn('[auth] signUp error:', error.message, 'status:', error.status, 'code:', (error as any).code);
-      // Surface specific common errors so UX isn't a black box,
-      // but keep wording neutral about account existence.
-      if (error.message.toLowerCase().includes('already')) {
-        return { ok: false, error: 'Email tidak tersedia. Coba gunakan email lain atau masuk dengan akun yang ada.' };
-      }
-      if (error.message.toLowerCase().includes('password')) {
-        return { ok: false, error: 'Kata sandi tidak memenuhi syarat. Minimal 6 karakter.' };
-      }
-      return { ok: false, error: `Pendaftaran gagal: ${error.message}` };
-    }
+  }: { email: string; password: string; name: string; phone: string }): Promise<SignUpResult> => {
+    try {
+      console.log('[auth] signUp start:', email);
+      const startedAt = Date.now();
+      const { data, error } = await withTimeout(
+        supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            data: { name: name.trim(), phone: phone.trim() },
+          },
+        }),
+        15000,
+        'signUp',
+      );
+      console.log('[auth] signUp done in', Date.now() - startedAt, 'ms; hasSession=', !!data?.session);
 
-    // If session is null → email confirmation is enabled in Supabase project settings.
-    // User must verify via email before they can sign in.
-    const needsEmailConfirmation = !data.session;
-    return { ok: true, needsEmailConfirmation };
+      if (error) {
+        console.warn('[auth] signUp error:', error.message);
+        const msg = error.message.toLowerCase();
+        if (msg.includes('already')) {
+          return { ok: false, error: 'Email sudah terdaftar. Silakan masuk dengan akun yang ada.' };
+        }
+        if (msg.includes('password')) {
+          return { ok: false, error: 'Kata sandi tidak memenuhi syarat. Minimal 6 karakter.' };
+        }
+        if (msg.includes('rate') || msg.includes('email rate')) {
+          return { ok: false, error: 'Rate limit email Supabase tercapai. Tunggu ~1 jam atau setup custom SMTP.' };
+        }
+        return { ok: false, error: `Pendaftaran gagal: ${error.message}` };
+      }
+      return { ok: true, needsEmailConfirmation: !data.session };
+    } catch (e: any) {
+      console.warn('[auth] signUp threw:', e?.message ?? e);
+      return { ok: false, error: e?.message?.includes('timeout')
+        ? 'Server tidak merespons. Cek koneksi internet atau coba lagi.'
+        : 'Pendaftaran gagal. Coba lagi.' };
+    }
   };
+
+  const verifyEmailOtp = async (rawEmail: string, token: string): Promise<AuthOpResult> => {
+    const email = rawEmail.trim().toLowerCase();
+    try {
+      console.log('[auth] verifyOtp start');
+      const startedAt = Date.now();
+      const { data, error } = await withTimeout(
+        supabase.auth.verifyOtp({ email, token, type: 'email' }),
+        15000,
+        'verifyOtp',
+      );
+      console.log('[auth] verifyOtp done in', Date.now() - startedAt, 'ms');
+      if (error || !data.session || !data.user) {
+        console.warn('[auth] verifyEmailOtp error:', error?.message);
+        return { ok: false, error: 'Kode OTP salah atau sudah kedaluwarsa.' };
+      }
+      return { ok: true };
+    } catch (e: any) {
+      console.warn('[auth] verifyOtp threw:', e?.message ?? e);
+      return { ok: false, error: e?.message?.includes('timeout')
+        ? 'Server tidak merespons. Cek koneksi internet atau coba lagi.'
+        : 'Verifikasi gagal. Coba lagi.' };
+    }
+  };
+
+  const resendSignupOtp = async (rawEmail: string): Promise<AuthOpResult> => {
+    const email = rawEmail.trim().toLowerCase();
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) {
+      console.warn('[auth] resendSignupOtp error:', error.message);
+      const msg = error.message.toLowerCase();
+      if (msg.includes('rate')) return { ok: false, error: 'Terlalu banyak permintaan. Coba lagi nanti.' };
+      return { ok: false, error: 'Gagal mengirim ulang kode.' };
+    }
+    return { ok: true };
+  };
+
+  const signInWithGoogle = async (): Promise<OAuthResult> => oauthSignInWithGoogle();
 
   const signOut = async (): Promise<void> => {
     await supabase.auth.signOut();
-    // onAuthStateChange will clear user + session
   };
 
   const updateUser = async (data: Partial<Omit<User, 'id'>>): Promise<void> => {
@@ -221,7 +283,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.email !== undefined) patch.email = data.email;
     if (data.phone !== undefined) patch.phone = data.phone;
     if (data.photoUri !== undefined) patch.photo_uri = data.photoUri;
-
     if (Object.keys(patch).length === 0) return;
 
     const { error } = await supabase
@@ -237,7 +298,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signIn, signUp, signOut, updateUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        isLoading,
+        signIn,
+        signUp,
+        verifyEmailOtp,
+        resendSignupOtp,
+        signInWithGoogle,
+        signOut,
+        updateUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
