@@ -2,7 +2,7 @@ import { Feather, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/v
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ✅ Path sudah disesuaikan mengarah ke folder context yang baru di luar app
@@ -75,10 +75,10 @@ export default function SOSScreen() {
   };
 
   const quickNumbers = useMemo(() => [
-    { label: t('sos_police'), number: '110', icon: 'shield-checkmark', family: 'ionicon' as IconFamily, color: '#2563EB' },
-    { label: t('sos_ambulance'), number: '119', icon: 'medical-bag', family: 'material' as IconFamily, color: '#059669' },
+    { label: t('sos_police'), number: '110', icon: 'police-badge', family: 'material' as IconFamily, color: '#DC2626' },
+    { label: t('sos_ambulance'), number: '119', icon: 'medical-bag', family: 'material' as IconFamily, color: '#DC2626' },
     { label: t('sos_fire_dept'), number: '113', icon: 'fire-extinguisher', family: 'fontawesome5' as IconFamily, color: '#DC2626' },
-    { label: t('sos_sar'), number: '115', icon: 'ship', family: 'fontawesome5' as IconFamily, color: '#7C3AED' },
+    { label: t('sos_sar'), number: '115', icon: 'ship', family: 'fontawesome5' as IconFamily, color: '#DC2626' },
   ], [t]);
 
   return (
@@ -113,18 +113,20 @@ export default function SOSScreen() {
             ))}
           </View>
 
-          {/* 2. BAGIAN KARTU 112 */}
-          <View style={styles.emergencyBanner}>
-            <View style={styles.bannerLeft}>
-              <MaterialCommunityIcons name="phone-alert" size={22} color="#FFFFFF" />
-              <View style={{ marginLeft: 12 }}>
-                <Text style={styles.bannerLabel}>{t('sos_emergency_label')}</Text>
-                <Text style={styles.bannerNumber}>112</Text>
+          {/* 2. BAGIAN KARTU 112 (Desain Baru & Bisa Ditelepon) */}
+          <View style={[styles.numbersCard, { marginBottom: 24 }]}>
+            <TouchableOpacity 
+              style={styles.numberRow} 
+              onPress={() => Linking.openURL('tel:112')}
+            >
+              <View style={[styles.numberIcon, { backgroundColor: 'rgba(220, 38, 38, 0.15)' }]}>
+                <FontAwesome5 name="font-awesome-flag" size={18} color="#DC2626" />
               </View>
-            </View>
-            <TouchableOpacity style={styles.callBtn}>
-              <Ionicons name="call" size={18} color="#003B71" />
-              <Text style={styles.callBtnText}>{t('sos_call')}</Text>
+              <View style={styles.numberInfo}>
+                <Text style={styles.numberLabel}>{t('sos_emergency_label')}</Text>
+              </View>
+              <Text style={[styles.numberDigit, { color: '#DC2626' }]}>112</Text>
+              <Ionicons name="call-outline" size={16} color="#DC2626" style={{ marginLeft: 8 }} />
             </TouchableOpacity>
           </View>
 
@@ -132,7 +134,7 @@ export default function SOSScreen() {
           <Text style={styles.sectionLabel}>{t('sos_other_numbers')}</Text>
           <View style={styles.numbersCard}>
             {quickNumbers.map(item => (
-              <TouchableOpacity key={item.number} style={styles.numberRow}>
+              <TouchableOpacity key={item.number} style={styles.numberRow} onPress={() => Linking.openURL(`tel:${item.number}`)}>
                 <View style={[styles.numberIcon, { backgroundColor: item.color + '15' }]}>
                   <DynamicIcon family={item.family} name={item.icon} size={18} color={item.color} />
                 </View>
