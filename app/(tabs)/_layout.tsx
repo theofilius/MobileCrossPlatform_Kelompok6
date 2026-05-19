@@ -20,7 +20,7 @@ function FloatingSOSButton() {
       pulse.value = withTiming(1, { duration: 200 });
     } else {
       pulse.value = withRepeat(
-        withSequence(withTiming(1.1, { duration: 800 }), withTiming(1, { duration: 800 })),
+        withSequence(withTiming(1.08, { duration: 900 }), withTiming(1, { duration: 900 })),
         -1,
         true
       );
@@ -50,8 +50,6 @@ function FloatingSOSButton() {
         </Pressable>
       </Animated.View>
 
-      {/* Label SOS yang menempel rapi di bawah */}
-      {!isHolding && <Text style={fabStyles.label}>SOS</Text>}
     </View>
   );
 }
