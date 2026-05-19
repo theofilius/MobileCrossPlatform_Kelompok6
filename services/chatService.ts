@@ -1,98 +1,120 @@
-// Chat service — in-memory store, ready for Supabase Realtime or Socket.IO swap
+// Community chat (general room) — Supabase backed, with image/voice support.
+
+import { supabase } from './supabase';
+
+export type ChatAttachmentType = 'image' | 'audio';
 
 export type ChatMessage = {
   id: string;
   roomId: string;
   userId: string;
   userName: string;
-  content: string;
+  content: string | null;
+  attachmentUrl: string | null;
+  attachmentType: ChatAttachmentType | null;
   createdAt: Date;
   isMine: boolean;
 };
 
-type RoomListener = (messages: ChatMessage[]) => void;
+type DbRow = {
+  id: string;
+  room_id: string;
+  user_id: string;
+  user_name: string;
+  content: string | null;
+  attachment_url: string | null;
+  attachment_type: ChatAttachmentType | null;
+  created_at: string;
+};
 
-const rooms = new Map<string, ChatMessage[]>();
-const listeners = new Map<string, RoomListener[]>();
+const SELECT = `
+  id, room_id, user_id, user_name, content,
+  attachment_url, attachment_type, created_at
+`;
 
-// Seed demo messages for the general room
-rooms.set('general', [
-  {
-    id: 'seed-1',
-    roomId: 'general',
-    userId: 'sys',
-    userName: 'Admin Aegis',
-    content: 'Selamat datang di chat komunitas Aegis Call! Gunakan ruang ini untuk berbagi informasi darurat.',
-    createdAt: new Date(Date.now() - 7200000),
-    isMine: false,
-  },
-  {
-    id: 'seed-2',
-    roomId: 'general',
-    userId: 'u2',
-    userName: 'Budi S.',
-    content: 'Ada kebakaran kecil di kawasan Menteng, sudah ditangani Damkar. Warga sekitar harap waspada.',
-    createdAt: new Date(Date.now() - 3600000),
-    isMine: false,
-  },
-  {
-    id: 'seed-3',
-    roomId: 'general',
-    userId: 'u3',
-    userName: 'Siti R.',
-    content: 'Terima kasih infonya Mas Budi. Saya lihat dari sini asapnya sudah berhenti.',
-    createdAt: new Date(Date.now() - 2700000),
-    isMine: false,
-  },
-  {
-    id: 'seed-4',
-    roomId: 'general',
-    userId: 'u4',
-    userName: 'Arif P.',
-    content: 'Hati-hati juga ada kecelakaan di Jl. Sudirman arah Semanggi, macet panjang.',
-    createdAt: new Date(Date.now() - 1200000),
-    isMine: false,
-  },
-]);
-
-export function getMessages(roomId: string): ChatMessage[] {
-  // TODO: const { data } = await supabase.from('chat_messages').select('*').eq('room_id', roomId).order('created_at');
-  return [...(rooms.get(roomId) ?? [])];
+// Stale file:// URIs from old messages don't resolve on other devices.
+function sanitizeUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith('file:') || url.startsWith('content:') || url.startsWith('asset:')) return null;
+  return url;
 }
 
-export function sendMessage(
+function rowToMessage(row: DbRow, currentUserId?: string): ChatMessage {
+  return {
+    id: row.id,
+    roomId: row.room_id,
+    userId: row.user_id,
+    userName: row.user_name,
+    content: row.content,
+    attachmentUrl: sanitizeUrl(row.attachment_url),
+    attachmentType: row.attachment_type,
+    createdAt: new Date(row.created_at),
+    isMine: !!currentUserId && row.user_id === currentUserId,
+  };
+}
+
+export async function getMessages(roomId: string, currentUserId?: string): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select(SELECT)
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: true })
+    .limit(200);
+
+  if (error) throw error;
+  return (data as unknown as DbRow[]).map(r => rowToMessage(r, currentUserId));
+}
+
+export async function sendMessage(input: {
+  roomId: string;
+  userId: string;
+  userName: string;
+  content?: string;
+  attachmentUrl?: string;
+  attachmentType?: ChatAttachmentType;
+}): Promise<ChatMessage> {
+  const trimmed = input.content?.trim() || null;
+  if (!trimmed && !input.attachmentUrl) {
+    throw new Error('Pesan atau lampiran wajib diisi.');
+  }
+
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({
+      room_id: input.roomId,
+      user_id: input.userId,
+      user_name: input.userName,
+      content: trimmed,
+      attachment_url: input.attachmentUrl ?? null,
+      attachment_type: input.attachmentType ?? null,
+    })
+    .select(SELECT)
+    .single();
+
+  if (error) throw error;
+  return rowToMessage(data as unknown as DbRow, input.userId);
+}
+
+// Unique channel id per subscribe — see note in reportService.ts
+let roomChannelCounter = 0;
+const nextRoomChannelId = () => `${Date.now()}-${++roomChannelCounter}`;
+
+export function subscribeToRoom(
   roomId: string,
-  content: string,
-  userId: string,
-  userName: string,
-): ChatMessage {
-  // TODO: const { data } = await supabase.from('chat_messages').insert({ room_id: roomId, user_id: userId, content }).select().single();
-  const msg: ChatMessage = {
-    id: Date.now().toString(),
-    roomId,
-    userId,
-    userName,
-    content,
-    createdAt: new Date(),
-    isMine: true,
-  };
-  if (!rooms.has(roomId)) rooms.set(roomId, []);
-  rooms.get(roomId)!.push(msg);
+  currentUserId: string | undefined,
+  onMessage: (msg: ChatMessage) => void,
+): () => void {
+  const channel = supabase
+    .channel(`chat-${roomId}-${nextRoomChannelId()}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
+      (payload) => {
+        const row = payload.new as DbRow;
+        onMessage(rowToMessage(row, currentUserId));
+      },
+    )
+    .subscribe();
 
-  const roomListeners = listeners.get(roomId) ?? [];
-  roomListeners.forEach(fn => fn(rooms.get(roomId)!));
-
-  return msg;
-}
-
-export function subscribeToRoom(roomId: string, callback: RoomListener): () => void {
-  // TODO: supabase.channel(roomId).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` }, ...).subscribe()
-  if (!listeners.has(roomId)) listeners.set(roomId, []);
-  listeners.get(roomId)!.push(callback);
-
-  return () => {
-    const arr = listeners.get(roomId) ?? [];
-    const idx = arr.indexOf(callback);
-    if (idx > -1) arr.splice(idx, 1);
-  };
+  return () => { supabase.removeChannel(channel); };
 }

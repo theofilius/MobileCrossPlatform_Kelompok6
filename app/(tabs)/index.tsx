@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import {
   Dimensions,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,10 +21,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// ✅ Path sudah disesuaikan mengarah ke folder context yang baru di luar app
+import { AuthContext } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { useSOS } from '../../context/SOSContext';
 import { getContactCount, subscribe as subscribeContacts } from '../../services/contactsService';
-import { AuthContext } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
-import { useSOS } from '../context/SOSContext';
 
 const { width } = Dimensions.get('window');
 
@@ -79,15 +82,10 @@ export default function HomeScreen() {
   }, []);
 
   // ── Animasi pulse — berhenti saat holding ───────────────
-  // ✅ FIX: Pulse reaktif terhadap isHolding
-  // Sebelumnya pulse terus berjalan bahkan saat user sedang holding
-  // — menambah cognitive load di situasi darurat
   useEffect(() => {
     if (isHolding) {
-      // Kembali ke skala normal saat holding
       pulse.value = withTiming(1, { duration: 200 });
     } else {
-      // Pulse normal saat idle
       pulse.value = withRepeat(
         withSequence(
           withTiming(1.08, { duration: 900 }),
@@ -98,7 +96,6 @@ export default function HomeScreen() {
       );
     }
   }, [isHolding]);
-  // isHolding dari SOSContext — efek ini jalan setiap isHolding berubah
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
@@ -116,7 +113,11 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.logoBox}>
-                <MaterialCommunityIcons name="shield-cross" size={20} color="#0C4F8D" />
+                <Image
+                  source={require('../../assets/images/aegis-logo.png')}
+                  style={styles.logoImg}
+                  resizeMode="cover"
+                />
               </View>
               <View>
                 <Text style={styles.locationLabel}>
@@ -237,247 +238,92 @@ export default function HomeScreen() {
 
 // ════════════════════════════════════════════════════════
 // STYLES
-// Dikelompokkan per section agar mudah ditemukan dan diubah
 // ════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
 
   // ── Root ──────────────────────────────────────────────
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop:        8,
-    paddingBottom:     32,
-    gap:               14,
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32, gap: 14 },
 
   // ── Header ────────────────────────────────────────────
   header: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius:   14,
-    padding:        12,
-    shadowColor:    '#000',
-    shadowOffset:   { width: 0, height: 2 },
-    shadowOpacity:  0.05,
-    shadowRadius:   4,
-    elevation:      2,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems:    'center',
-  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
   logoBox: {
-    width:           34,
-    height:          34,
-    borderRadius:    8,
-    backgroundColor: '#EEF5FC',
-    justifyContent:  'center',
-    alignItems:      'center',
-    marginRight:     10,
+    width: 34, height: 34, borderRadius: 8, backgroundColor: '#003B71',
+    justifyContent: 'center', alignItems: 'center', marginRight: 10, overflow: 'hidden',
   },
-  locationLabel: {
-    fontSize:   10,
-    color:      '#8D8E8E',
-    fontWeight: '600',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    marginTop:     2,
-  },
-  locationText: {
-    fontSize:   12,
-    color:      '#003B71',
-    fontWeight: '700',
-    marginLeft: 2,
-  },
-  bellBtn: {
-    padding: 4,
-  },
+  logoImg: { width: '100%', height: '100%' },
+  locationLabel: { fontSize: 10, color: '#8D8E8E', fontWeight: '600' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  locationText: { fontSize: 12, color: '#003B71', fontWeight: '700', marginLeft: 2 },
+  bellBtn: { padding: 4 },
 
   // ── Status Card ───────────────────────────────────────
   statusCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius:    16,
-    padding:         16,
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 2 },
-    shadowOpacity:   0.05,
-    shadowRadius:    4,
-    elevation:       2,
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
-  greeting: {
-    fontSize:     16,
-    fontWeight:   '800',
-    color:        '#003B71',
-    marginBottom: 12,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap:           8,
-  },
+  greeting: { fontSize: 16, fontWeight: '800', color: '#003B71', marginBottom: 12 },
+  statusRow: { flexDirection: 'row', gap: 8 },
   statusChip: {
-    flex:           1,
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical:   6,
-    borderRadius:   20,
-    gap:            4,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 8, paddingVertical: 6, borderRadius: 20, gap: 4,
   },
-  chipGreen: {
-    backgroundColor: 'rgba(22,163,74,0.1)',
-  },
-  chipBlue: {
-    backgroundColor: 'rgba(0,59,113,0.08)',
-  },
-  greenDot: {
-    width:           7,
-    height:          7,
-    borderRadius:    4,
-    backgroundColor: '#16A34A',
-  },
-  chipGreenText: {
-    fontSize:   11,
-    fontWeight: '700',
-    color:      '#16A34A',
-  },
-  chipBlueText: {
-    fontSize:   11,
-    fontWeight: '700',
-    color:      '#003B71',
-  },
+  chipGreen: { backgroundColor: 'rgba(22,163,74,0.1)' },
+  chipBlue: { backgroundColor: 'rgba(0,59,113,0.08)' },
+  greenDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#16A34A' },
+  chipGreenText: { fontSize: 11, fontWeight: '700', color: '#16A34A' },
+  chipBlueText: { fontSize: 11, fontWeight: '700', color: '#003B71' },
 
   // ── Emergency Card ────────────────────────────────────
   emergencyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius:    22,
-    padding:         20,
-    alignItems:      'center',
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 2 },
-    shadowOpacity:   0.05,
-    shadowRadius:    4,
-    elevation:       2,
+    backgroundColor: '#FFFFFF', borderRadius: 22, padding: 20, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
-  emergencyLabel: {
-    fontSize:     11,
-    fontWeight:   '800',
-    color:        '#8D8E8E',
-    letterSpacing: 1.5,
-    marginBottom: 16,
-  },
-  sosContainer: {
-    alignItems:     'center',
-    justifyContent: 'center',
-    marginBottom:   16,
-  },
+  emergencyLabel: { fontSize: 11, fontWeight: '800', color: '#8D8E8E', letterSpacing: 1.5, marginBottom: 16 },
+  sosContainer: { alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
 
-  // Lingkaran terluar — ring dengan border dashed saat idle
   pulseOuter: {
-    width:        width * 0.46,
-    height:       width * 0.46,
-    borderRadius: width * 0.23,
-    borderWidth:  1,
-    borderColor:  'rgba(12,79,141,0.15)',
-    borderStyle:  'dashed',
-    justifyContent: 'center',
-    alignItems:     'center',
+    width: width * 0.46, height: width * 0.46, borderRadius: width * 0.23,
+    borderWidth: 1, borderColor: 'rgba(12,79,141,0.15)', borderStyle: 'dashed',
+    justifyContent: 'center', alignItems: 'center',
   },
-  pulseOuterHolding: {
-    borderColor: 'rgba(220,38,38,0.4)',
-    borderStyle: 'solid',
-    borderWidth: 2,
-  },
+  pulseOuterHolding: { borderColor: 'rgba(220,38,38,0.4)', borderStyle: 'solid', borderWidth: 2 },
 
-  // Lingkaran tengah — area animasi Reanimated
   pulseInner: {
-    width:           width * 0.37,
-    height:          width * 0.37,
-    borderRadius:    width * 0.185,
-    backgroundColor: 'rgba(12,79,141,0.08)',
-    justifyContent:  'center',
-    alignItems:      'center',
+    width: width * 0.37, height: width * 0.37, borderRadius: width * 0.185,
+    backgroundColor: 'rgba(12,79,141,0.08)', justifyContent: 'center', alignItems: 'center',
   },
-  pulseInnerHolding: {
-    backgroundColor: 'rgba(220,38,38,0.1)',
-  },
+  pulseInnerHolding: { backgroundColor: 'rgba(220,38,38,0.1)' },
 
-  // Tombol SOS inti
   sosBtn: {
-    width:          width * 0.27,
-    height:         width * 0.27,
-    borderRadius:   width * 0.135,
-    backgroundColor: '#0C4F8D',
-    justifyContent: 'center',
-    alignItems:     'center',
-    shadowColor:    '#0C4F8D',
-    shadowOffset:   { width: 0, height: 6 },
-    shadowOpacity:  0.35,
-    shadowRadius:   14,
-    elevation:      10,
-    borderWidth:    3,
-    borderColor:    '#2571B8',
+    width: width * 0.27, height: width * 0.27, borderRadius: width * 0.135,
+    backgroundColor: '#0C4F8D', justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#0C4F8D', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 14, elevation: 10,
+    borderWidth: 3, borderColor: '#2571B8',
   },
-  sosBtnHolding: {
-    backgroundColor: '#DC2626',
-    borderColor:     '#FF4444',
-    shadowColor:     '#DC2626',
-  },
-  holdCountText: {
-    fontSize:   42,
-    fontWeight: '900',
-    color:      '#FFFFFF',
-  },
+  sosBtnHolding: { backgroundColor: '#DC2626', borderColor: '#FF4444', shadowColor: '#DC2626' },
+  holdCountText: { fontSize: 42, fontWeight: '900', color: '#FFFFFF' },
 
-  // Teks petunjuk di bawah tombol SOS
-  sosHelper: {
-    fontSize:   12,
-    color:      '#6B7280',
-    textAlign:  'center',
-    fontWeight: '500',
-    marginBottom: 16,
-  },
-  sosHelperHolding: {
-    color:      '#DC2626',
-    fontWeight: '600',
-  },
+  sosHelper: { fontSize: 12, color: '#6B7280', textAlign: 'center', fontWeight: '500', marginBottom: 16 },
+  sosHelperHolding: { color: '#DC2626', fontWeight: '600' },
 
   // ── Learn More ────────────────────────────────────────
   learnSection: {},
-  learnHeader: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    marginBottom:  10,
-    paddingHorizontal: 4,
-    gap:           4,
-  },
-  learnTitle: {
-    fontSize:   14,
-    fontWeight: '700',
-    color:      '#003B71',
-  },
+  learnHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4, gap: 4 },
+  learnTitle: { fontSize: 14, fontWeight: '700', color: '#003B71' },
   pill: {
-    backgroundColor: '#003B71',
-    flexDirection:   'row',
-    justifyContent:  'space-between',
-    alignItems:      'center',
-    paddingHorizontal: 20,
-    paddingVertical:   13,
-    borderRadius:    24,
-    marginBottom:    8,
+    backgroundColor: '#003B71', flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingHorizontal: 20, paddingVertical: 13, borderRadius: 24, marginBottom: 8,
   },
-  pillText: {
-    color:      '#FFFFFF',
-    fontSize:   13,
-    fontWeight: '700',
-  },
+  pillText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 });

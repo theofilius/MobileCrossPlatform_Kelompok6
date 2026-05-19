@@ -1,6 +1,8 @@
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useEffect, useState } from 'react';
-import { supabase } from '../../services/supabase';
+import { supabase } from '@/services/supabase';
+
+export type UserRole = 'user' | 'petugas' | 'admin';
 
 export type User = {
   id: string;
@@ -8,6 +10,7 @@ export type User = {
   email?: string;
   phone?: string;
   photoUri?: string;
+  role: UserRole;
 };
 
 export type SignInResult = { ok: true } | { ok: false; error: string };
@@ -42,16 +45,22 @@ export const AuthContext = createContext<AuthContextType>({
 async function fetchProfile(userId: string): Promise<Partial<User>> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, email, phone, photo_uri')
+    .select('name, email, phone, photo_uri, role')
     .eq('id', userId)
     .maybeSingle();
 
   if (error || !data) return {};
+  // Guard the role value — anything outside the allowed set is treated as 'user'.
+  const rawRole = (data as { role?: string }).role;
+  const role: UserRole =
+    rawRole === 'petugas' || rawRole === 'admin' ? rawRole : 'user';
+
   return {
     name: data.name,
     email: data.email ?? undefined,
     phone: data.phone ?? undefined,
     photoUri: data.photo_uri ?? undefined,
+    role,
   };
 }
 
@@ -62,6 +71,7 @@ function buildUser(session: Session, profile: Partial<User>): User {
     name: profile.name ?? (session.user.email ? session.user.email.split('@')[0] : 'User'),
     phone: profile.phone,
     photoUri: profile.photoUri,
+    role: profile.role ?? 'user',
   };
 }
 
@@ -74,30 +84,76 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
+    // Watchdog: if anything blocks for too long (e.g. cold-start after iOS
+    // killed the app while another app was foregrounded, slow AsyncStorage),
+    // release the loading gate so the user isn't stuck on a spinner forever.
+    const watchdog = setTimeout(() => {
+      if (mounted) setIsLoading(false);
+    }, 1500);
+
     (async () => {
-      const { data: { session: existing } } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setSession(existing);
-      if (existing) {
+      let existing: Session | null = null;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        existing = data.session;
+        if (!mounted) return;
+        setSession(existing);
+
+        if (existing) {
+          // Seed user immediately from the session so AuthGate stops blocking
+          // the UI behind a profiles network round-trip. Profile fields
+          // (name, phone, role, photo) are filled in once fetchProfile resolves.
+          setUser(buildUser(existing, {}));
+        }
+      } catch (err: any) {
+        // Common case: stored refresh token is missing/expired/corrupted.
+        // Supabase throws `AuthApiError: Invalid Refresh Token: Refresh Token Not Found`.
+        // Clear the broken state silently so AuthGate routes the user to /login.
+        console.warn('[auth] session hydration failed:', err?.message ?? err);
+        try { await supabase.auth.signOut(); } catch { /* ignore */ }
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+        }
+        existing = null;
+      } finally {
+        if (mounted) {
+          clearTimeout(watchdog);
+          setIsLoading(false);
+        }
+      }
+
+      if (!existing) return;
+      try {
         const profile = await fetchProfile(existing.user.id);
         if (!mounted) return;
         setUser(buildUser(existing, profile));
+      } catch (err: any) {
+        // Profile enrichment is non-critical; keep the session active.
+        console.warn('[auth] fetchProfile failed:', err?.message ?? err);
       }
-      setIsLoading(false);
     })();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      if (newSession) {
-        const profile = await fetchProfile(newSession.user.id);
-        setUser(buildUser(newSession, profile));
-      } else {
-        setUser(null);
+      try {
+        setSession(newSession);
+        if (newSession) {
+          // Seed first so role-based routing has something to work with.
+          setUser(buildUser(newSession, {}));
+          const profile = await fetchProfile(newSession.user.id);
+          setUser(buildUser(newSession, profile));
+        } else {
+          setUser(null);
+        }
+      } catch (err: any) {
+        console.warn('[auth] onAuthStateChange failed:', err?.message ?? err);
       }
     });
 
     return () => {
       mounted = false;
+      clearTimeout(watchdog);
       subscription.unsubscribe();
     };
   }, []);

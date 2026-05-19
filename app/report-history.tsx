@@ -4,20 +4,24 @@ import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthContext } from './context/AuthContext';
-import { useLanguage } from './context/LanguageContext';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,
   EmergencyType,
   Report,
-  getReports,
+  listReports,
+  subscribeToReports,
 } from '../services/reportService';
 
 const STATUS_KEY: Record<Report['status'], TranslationKey> = {
-  pending: 'status_pending',
-  responded: 'status_responded',
-  resolved: 'status_resolved',
+  pending:   'status_pending',
+  accepted:  'status_responded',
+  ontheway:  'status_responded',
+  arrived:   'status_responded',
+  resolved:  'status_resolved',
+  cancelled: 'status_resolved',
 };
 
 const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
@@ -30,14 +34,17 @@ const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
 };
 
 const STATUS_COLOR: Record<Report['status'], string> = {
-  pending: '#F97316',
-  responded: '#3B82F6',
-  resolved: '#10B981',
+  pending:   '#F97316',
+  accepted:  '#3B82F6',
+  ontheway:  '#3B82F6',
+  arrived:   '#3B82F6',
+  resolved:  '#10B981',
+  cancelled: '#9CA3AF',
 };
 
 const TYPE_ICON: Record<EmergencyType, string> = {
   fire: 'fire',
-  accident: 'car-crash',
+  accident: 'car-emergency',
   crime: 'shield-alert',
   disaster: 'weather-lightning-rainy',
   medical: 'medical-bag',
@@ -61,10 +68,17 @@ export default function ReportHistoryScreen() {
   const [reports, setReports] = useState<Report[]>([]);
 
   useEffect(() => {
-    // TODO: const { data } = await supabase.from('reports').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-    const all = getReports();
-    setReports(all);
-  }, []);
+    let mounted = true;
+    const refresh = () => {
+      listReports()
+        .then(rows => { if (mounted) setReports(user?.id ? rows.filter(r => r.userId === user.id) : rows); })
+        .catch(() => { if (mounted) setReports([]); });
+    };
+    refresh();
+    // Refetch when any of the user's reports change (status updated by petugas, etc).
+    const unsub = subscribeToReports(() => refresh());
+    return () => { mounted = false; unsub(); };
+  }, [user?.id]);
 
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>

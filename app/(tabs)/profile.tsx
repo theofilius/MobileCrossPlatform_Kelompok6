@@ -4,13 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { AuthContext } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { useDialog } from '../../components/aegis/Dialog';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useContext(AuthContext);
   const { t, language, setLanguage } = useLanguage();
+  const dialog = useDialog();
 
   const handleLogout = async () => {
     await signOut();
@@ -19,15 +21,14 @@ export default function ProfileScreen() {
   };
 
   const handlePickLanguage = () => {
-    Alert.alert(
-      t('lang_pick_title'),
-      undefined,
-      [
-        { text: 'Bahasa Indonesia' + (language === 'id' ? '  ✓' : ''), onPress: () => setLanguage('id') },
-        { text: 'English' + (language === 'en' ? '  ✓' : ''), onPress: () => setLanguage('en') },
-        { text: t('report_cancel'), style: 'cancel' },
-      ],
-    );
+    dialog.show({
+      type: 'info',
+      title: t('lang_pick_title'),
+      primaryText: 'Bahasa Indonesia' + (language === 'id' ? '  ✓' : ''),
+      secondaryText: 'English' + (language === 'en' ? '  ✓' : ''),
+      onPrimary: () => setLanguage('id'),
+      onSecondary: () => setLanguage('en')
+    });
   };
 
   return (
@@ -103,6 +104,7 @@ export default function ProfileScreen() {
 
         </ScrollView>
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

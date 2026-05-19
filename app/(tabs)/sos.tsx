@@ -4,9 +4,11 @@ import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// ✅ Path sudah disesuaikan mengarah ke folder context yang baru di luar app
+import { useLanguage } from '../../context/LanguageContext';
 import { EmergencyType } from '../../services/reportService';
 import { TranslationKey } from '../../translations';
-import { useLanguage } from '../context/LanguageContext';
 
 // ==========================================
 // 🛠️ STEP 1 & 2: REGISTRY & DYNAMIC ICON
@@ -51,6 +53,7 @@ type Category = {
   bg: string;
 };
 
+// ✅ KITA PERTAHANKAN KODINGANMU KARENA LEBIH BAIK
 const CATEGORIES: Category[] = [
   { type: 'fire', labelKey: 'sos_fire', subKey: 'sos_fire_sub', icon: 'fire', family: 'material', color: '#DC2626', bg: '#FEF2F2' },
   { type: 'accident', labelKey: 'sos_accident', subKey: 'sos_accident_sub', icon: 'car-crash', family: 'fontawesome5', color: '#EA580C', bg: '#FFF7ED' },
@@ -110,7 +113,7 @@ export default function SOSScreen() {
             ))}
           </View>
 
-          {/* 2. BAGIAN KARTU 112 (DIPINDAHKAN KE TENGAH SINI) */}
+          {/* 2. BAGIAN KARTU 112 */}
           <View style={styles.emergencyBanner}>
             <View style={styles.bannerLeft}>
               <MaterialCommunityIcons name="phone-alert" size={22} color="#FFFFFF" />
@@ -152,7 +155,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
-  header: { marginBottom: 24 }, // Margin diubah agar jarak ke label kategori rapi
+  header: { marginBottom: 24 }, 
   title: { fontSize: 22, fontWeight: '800', color: '#003B71', marginBottom: 4 },
   subtitle: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
   
@@ -160,7 +163,7 @@ const styles = StyleSheet.create({
   emergencyBanner: {
     backgroundColor: '#003B71', borderRadius: 16, padding: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 24, // Jarak bawah menuju "Nomor Darurat Lainnya"
+    marginBottom: 24, 
   },
   bannerLeft: { flexDirection: 'row', alignItems: 'center' },
   bannerLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
@@ -176,7 +179,7 @@ const styles = StyleSheet.create({
     fontSize: 13, fontWeight: '700', color: '#6B7280',
     letterSpacing: 0.5, marginBottom: 12, textTransform: 'uppercase',
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 }, // Margin bawah dirapikan
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 }, 
   card: { width: '47%', borderRadius: 16, padding: 16, borderWidth: 1, position: 'relative' },
   iconBox: { width: 50, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   cardLabel: { fontSize: 15, fontWeight: '800', marginBottom: 3 },

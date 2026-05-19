@@ -7,7 +7,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,13 +14,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AuthContext } from './context/AuthContext';
-import { useLanguage } from './context/LanguageContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { useDialog } from '../components/aegis/Dialog';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useContext(AuthContext);
   const { t, language, setLanguage } = useLanguage();
+  const dialog = useDialog();
 
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
@@ -41,12 +43,14 @@ export default function LoginScreen() {
     if (loginMethod === 'phone') {
       // Phone+password login is not supported by Supabase out of the box
       // (would require phone OTP setup). Inform the user.
-      Alert.alert(
-        '!',
-        language === 'id'
+      dialog.show({
+        type: 'info',
+        title: '!',
+        body: language === 'id'
           ? 'Login dengan nomor telepon belum tersedia. Gunakan email.'
           : 'Phone login is not available yet. Please use email.',
-      );
+        primaryText: 'OK'
+      });
       return;
     }
 
@@ -210,6 +214,7 @@ export default function LoginScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <dialog.Dialog />
     </LinearGradient>
   );
 }

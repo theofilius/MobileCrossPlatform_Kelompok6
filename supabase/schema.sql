@@ -37,15 +37,25 @@ exception when duplicate_object then null; end $$;
 -- ====================================================================
 
 -- 2.1 profiles — extends auth.users with display fields
+-- role: 'user' (default, set automatically on signup), 'petugas', or 'admin'.
+-- Admin/petugas accounts are created manually via Supabase Auth dashboard
+-- and their role updated by hand in this table.
 create table if not exists public.profiles (
   id          uuid        primary key references auth.users(id) on delete cascade,
   name        text        not null,
   phone       text,
   email       text,
   photo_uri   text,
+  role        text        not null default 'user'
+              check (role in ('user', 'petugas', 'admin')),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+-- For tables created before the role column existed, add it idempotently.
+alter table public.profiles
+  add column if not exists role text not null default 'user'
+  check (role in ('user', 'petugas', 'admin'));
 
 -- 2.2 emergency_contacts — per-user contact list
 create table if not exists public.emergency_contacts (
@@ -122,6 +132,8 @@ create index if not exists notifications_user_unread_idx
   on public.notifications(user_id)
   where read = false;
 
+create index if not exists profiles_role_idx on public.profiles(role);
+
 -- ====================================================================
 -- 4. ROW LEVEL SECURITY — enable on all tables
 -- ====================================================================
@@ -151,6 +163,12 @@ create policy profiles_update_own on public.profiles
   for update to authenticated
   using (auth.uid() = id)
   with check (auth.uid() = id);
+
+-- Block authenticated/anon from updating the role column.
+-- Row policy still allows updating name/phone/email/photo_uri.
+-- Role can only be changed by the service role (e.g. via Supabase dashboard).
+revoke update (role) on public.profiles from authenticated;
+revoke update (role) on public.profiles from anon;
 
 -- 5.2 emergency_contacts — full CRUD on own rows only
 drop policy if exists ec_select_own on public.emergency_contacts;
@@ -242,12 +260,15 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, phone, email)
+  -- role is hardcoded to 'user' here so the client cannot self-elevate
+  -- by sending a `role` value in raw_user_meta_data at signup time.
+  insert into public.profiles (id, name, phone, email, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1), 'User'),
     new.raw_user_meta_data->>'phone',
-    new.email
+    new.email,
+    'user'
   );
   return new;
 end;

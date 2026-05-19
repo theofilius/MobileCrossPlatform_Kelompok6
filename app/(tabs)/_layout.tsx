@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSOS } from '../context/SOSContext';
+import { useSOS } from '../../context/SOSContext';
 
 // ════════════════════════════════════════════════════════
 // FLOATING SOS BUTTON
@@ -32,7 +32,6 @@ function FloatingSOSButton() {
   }));
 
   // ✅ FIX POSISI: Menaruh FAB tepat menempel pada batas atas Tab Bar
-  // Mengurangi variabel dinamis yang tidak perlu.
   const paddingBawah = Platform.OS === 'ios' ? insets.bottom + 10 : 15;
 
   return (
@@ -52,7 +51,7 @@ function FloatingSOSButton() {
       </Animated.View>
 
       {/* Label SOS yang menempel rapi di bawah */}
-      
+      {!isHolding && <Text style={fabStyles.label}>SOS</Text>}
     </View>
   );
 }
@@ -185,7 +184,7 @@ const fabStyles = StyleSheet.create({
     fontWeight: '900',
   },
   label: {
-    color: '#8D8E8E', // Diubah menjadi abu-abu netral agar menyatu dengan menu navigasi lain
+    color: '#8D8E8E',
     fontSize: 10,
     fontWeight: '800',
     marginTop: 2,

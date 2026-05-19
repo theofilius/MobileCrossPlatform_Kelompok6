@@ -1,23 +1,27 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from './context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,
   EmergencyType,
   Report,
   getReport,
+  subscribeToReport,
 } from '../services/reportService';
 
 const STATUS_KEY: Record<Report['status'], TranslationKey> = {
-  pending: 'status_pending_long',
-  responded: 'status_responded_long',
-  resolved: 'status_resolved_long',
+  pending:   'status_pending_long',
+  accepted:  'status_responded_long',
+  ontheway:  'status_responded_long',
+  arrived:   'status_responded_long',
+  resolved:  'status_resolved_long',
+  cancelled: 'status_resolved_long',
 };
 
 const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
@@ -30,20 +34,26 @@ const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
 };
 
 const STATUS_COLOR: Record<Report['status'], string> = {
-  pending: '#F97316',
-  responded: '#3B82F6',
-  resolved: '#10B981',
+  pending:   '#F97316',
+  accepted:  '#3B82F6',
+  ontheway:  '#3B82F6',
+  arrived:   '#3B82F6',
+  resolved:  '#10B981',
+  cancelled: '#9CA3AF',
 };
 
 const STATUS_ICON: Record<Report['status'], string> = {
-  pending: 'time-outline',
-  responded: 'shield-checkmark-outline',
-  resolved: 'checkmark-circle-outline',
+  pending:   'time-outline',
+  accepted:  'shield-checkmark-outline',
+  ontheway:  'shield-checkmark-outline',
+  arrived:   'shield-checkmark-outline',
+  resolved:  'checkmark-circle-outline',
+  cancelled: 'close-circle-outline',
 };
 
 const TYPE_ICON: Record<EmergencyType, string> = {
   fire: 'fire',
-  accident: 'car-crash',
+  accident: 'car-emergency',
   crime: 'shield-alert',
   disaster: 'weather-lightning-rainy',
   medical: 'medical-bag',
@@ -67,19 +77,28 @@ export default function ReportDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [report, setReport] = useState<Report | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
 
   useEffect(() => {
-    if (id) {
-      // TODO: const { data } = await supabase.from('reports').select('*').eq('id', id).single();
-      const r = getReport(id);
-      setReport(r ?? null);
-    }
+    if (!id) return;
+    let mounted = true;
+
+    const refresh = () => {
+      getReport(id)
+        .then(r => { if (mounted) setReport(r ?? null); })
+        .catch(() => { if (mounted) setReport(null); });
+    };
+
+    refresh();
+    // Realtime: petugas can change status / assignment — re-fetch on UPDATE
+    // so the user sees the new state without leaving the screen.
+    const unsub = subscribeToReport(id, () => refresh());
+    return () => { mounted = false; unsub(); };
   }, [id]);
 
   useEffect(() => {
     return () => {
-      soundRef.current?.unloadAsync();
+      try { soundRef.current?.remove(); } catch { /* ignore */ }
     };
   }, []);
 
@@ -87,27 +106,24 @@ export default function ReportDetailScreen() {
     if (!report?.audioUri) return;
 
     if (isPlaying && soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      try { soundRef.current.pause(); soundRef.current.remove(); } catch { /* ignore */ }
       soundRef.current = null;
       setIsPlaying(false);
       return;
     }
 
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: report.audioUri },
-      { shouldPlay: true }
-    );
-    soundRef.current = sound;
-    setIsPlaying(true);
-
-    sound.setOnPlaybackStatusUpdate(status => {
-      if (status.isLoaded && status.didJustFinish) {
+    await setAudioModeAsync({ playsInSilentMode: true } as any);
+    const player = createAudioPlayer({ uri: report.audioUri });
+    soundRef.current = player;
+    player.addListener('playbackStatusUpdate', (status: any) => {
+      if (status.didJustFinish) {
         setIsPlaying(false);
-        soundRef.current = null;
+        try { player.remove(); } catch { /* ignore */ }
+        if (soundRef.current === player) soundRef.current = null;
       }
     });
+    player.play();
+    setIsPlaying(true);
   };
 
   if (!report) {
@@ -133,7 +149,16 @@ export default function ReportDetailScreen() {
             <Ionicons name="chevron-back" size={22} color="#003B71" />
           </TouchableOpacity>
           <Text style={styles.title}>{t('detail_title')}</Text>
-          <View style={{ width: 36 }} />
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.push({
+              pathname: '/report-chat' as any,
+              params: { reportId: report.id, title: report.address || '' },
+            })}
+            hitSlop={8}
+          >
+            <Ionicons name="chatbubble-ellipses" size={20} color="#003B71" />
+          </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -221,18 +246,30 @@ export default function ReportDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{t('detail_status_title')}</Text>
             <View style={styles.timeline}>
-              {(['pending', 'responded', 'resolved'] as const).map((s, i) => {
-                const active = ['pending', 'responded', 'resolved'].indexOf(report.status) >= i;
-                return (
-                  <View key={s} style={styles.timelineItem}>
-                    <View style={[styles.timelineDot, active && { backgroundColor: STATUS_COLOR[s] }]} />
-                    {i < 2 && <View style={[styles.timelineLine, active && { backgroundColor: '#E5E7EB' }]} />}
-                    <Text style={[styles.timelineLabel, active && { color: '#111827', fontWeight: '600' }]}>
-                      {t(STATUS_KEY[s])}
-                    </Text>
-                  </View>
-                );
-              })}
+              {(() => {
+                // Collapse the 6 DB statuses into 3 timeline buckets.
+                const bucket: Record<Report['status'], number> = {
+                  pending: 0, accepted: 1, ontheway: 1, arrived: 1, resolved: 2, cancelled: 2,
+                };
+                const currentIdx = bucket[report.status];
+                const steps: { key: Report['status']; tk: TranslationKey; color: string }[] = [
+                  { key: 'pending',  tk: STATUS_KEY.pending,  color: STATUS_COLOR.pending  },
+                  { key: 'accepted', tk: STATUS_KEY.accepted, color: STATUS_COLOR.accepted },
+                  { key: 'resolved', tk: STATUS_KEY.resolved, color: STATUS_COLOR.resolved },
+                ];
+                return steps.map((s, i) => {
+                  const active = currentIdx >= i;
+                  return (
+                    <View key={s.key} style={styles.timelineItem}>
+                      <View style={[styles.timelineDot, active && { backgroundColor: s.color }]} />
+                      {i < 2 && <View style={[styles.timelineLine, active && { backgroundColor: '#E5E7EB' }]} />}
+                      <Text style={[styles.timelineLabel, active && { color: '#111827', fontWeight: '600' }]}>
+                        {t(s.tk)}
+                      </Text>
+                    </View>
+                  );
+                });
+              })()}
             </View>
           </View>
 

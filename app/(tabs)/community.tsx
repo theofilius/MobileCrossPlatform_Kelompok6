@@ -11,13 +11,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { TranslationKey } from '../../translations';
 import {
   EMERGENCY_COLORS,
   EmergencyType,
   Report,
-  getReports,
+  listReports,
 } from '../../services/reportService';
 
 type FilterType = 'all' | EmergencyType;
@@ -33,9 +33,12 @@ const FILTERS: { key: FilterType; labelKey: TranslationKey }[] = [
 ];
 
 const STATUS_KEY: Record<Report['status'], TranslationKey> = {
-  pending: 'status_pending',
-  responded: 'status_responded',
-  resolved: 'status_resolved',
+  pending:   'status_pending',
+  accepted:  'status_responded',
+  ontheway:  'status_responded',
+  arrived:   'status_responded',
+  resolved:  'status_resolved',
+  cancelled: 'status_resolved',
 };
 
 const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
@@ -48,14 +51,17 @@ const TYPE_KEY: Record<EmergencyType, TranslationKey> = {
 };
 
 const STATUS_COLOR: Record<Report['status'], string> = {
-  pending: '#F97316',
-  responded: '#3B82F6',
-  resolved: '#10B981',
+  pending:   '#F97316',
+  accepted:  '#3B82F6',
+  ontheway:  '#3B82F6',
+  arrived:   '#3B82F6',
+  resolved:  '#10B981',
+  cancelled: '#9CA3AF',
 };
 
 const TYPE_ICON: Record<EmergencyType, { icon: string; iconSet: 'material' | 'ionicons' }> = {
   fire: { icon: 'fire', iconSet: 'material' },
-  accident: { icon: 'car-crash', iconSet: 'material' },
+  accident: { icon: 'car-emergency', iconSet: 'material' },
   crime: { icon: 'shield-alert', iconSet: 'material' },
   disaster: { icon: 'weather-lightning-rainy', iconSet: 'material' },
   medical: { icon: 'medical-bag', iconSet: 'material' },
@@ -116,7 +122,7 @@ export default function CommunityScreen() {
   const [reports, setReports] = useState<Report[]>([]);
 
   useEffect(() => {
-    setReports(getReports());
+    listReports().then(setReports).catch(() => setReports([]));
   }, []);
 
   const filtered = filter === 'all' ? reports : reports.filter(r => r.type === filter);

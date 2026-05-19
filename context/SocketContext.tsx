@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import * as socketService from '../../services/socketService';
+import * as socketService from '@/services/socketService';
 
 type SocketContextType = {
   isConnected: boolean;

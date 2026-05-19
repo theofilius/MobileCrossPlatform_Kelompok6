@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLanguage } from './context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { useAudio } from '../hooks/useAudio';
 import { setPendingAudio } from '../utils/pendingAudio';
 
