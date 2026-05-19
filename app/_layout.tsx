@@ -56,7 +56,8 @@ export default function RootLayout() {
         <SocketProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <AuthGate>
-              <SOSProvider> {/* menambahkan button yang tersinkronisasi dengan sos di homepage */}
+              {/* menambahkan button yang tersinkronisasi dengan sos di homepage */}
+              <SOSProvider>
                 <Stack>
                   <Stack.Screen name="index" options={{ headerShown: false }} />
                   <Stack.Screen name="login" options={{ headerShown: false }} />

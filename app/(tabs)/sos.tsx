@@ -72,7 +72,7 @@ export default function SOSScreen() {
   };
 
   const quickNumbers = useMemo(() => [
-    { label: t('sos_police'), number: '110', icon: 'police-badge', family: 'material' as IconFamily, color: '#2563EB' },
+    { label: t('sos_police'), number: '110', icon: 'shield-checkmark', family: 'ionicon' as IconFamily, color: '#2563EB' },
     { label: t('sos_ambulance'), number: '119', icon: 'medical-bag', family: 'material' as IconFamily, color: '#059669' },
     { label: t('sos_fire_dept'), number: '113', icon: 'fire-extinguisher', family: 'fontawesome5' as IconFamily, color: '#DC2626' },
     { label: t('sos_sar'), number: '115', icon: 'ship', family: 'fontawesome5' as IconFamily, color: '#7C3AED' },
@@ -81,32 +81,14 @@ export default function SOSScreen() {
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        
-        {/* ✨ AREA STICKY (TETAP MENGAMBANG DI ATAS) ✨ */}
-        <View style={styles.stickyArea}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
           <View style={styles.header}>
             <Text style={styles.title}>{t('sos_title')}</Text>
             <Text style={styles.subtitle}>{t('sos_subtitle')}</Text>
           </View>
 
-          <View style={styles.emergencyBanner}>
-            <View style={styles.bannerLeft}>
-              <MaterialCommunityIcons name="phone-alert" size={22} color="#FFFFFF" />
-              <View style={{ marginLeft: 12 }}>
-                <Text style={styles.bannerLabel}>{t('sos_emergency_label')}</Text>
-                <Text style={styles.bannerNumber}>112</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.callBtn}>
-              <Ionicons name="call" size={18} color="#003B71" />
-              <Text style={styles.callBtnText}>{t('sos_call')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 📜 AREA YANG BISA DI-SCROLL 📜 */}
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          
+          {/* 1. BAGIAN GRID KATEGORI */}
           <Text style={styles.sectionLabel}>{t('sos_category')}</Text>
           <View style={styles.grid}>
             {CATEGORIES.map(cat => (
@@ -128,6 +110,22 @@ export default function SOSScreen() {
             ))}
           </View>
 
+          {/* 2. BAGIAN KARTU 112 (DIPINDAHKAN KE TENGAH SINI) */}
+          <View style={styles.emergencyBanner}>
+            <View style={styles.bannerLeft}>
+              <MaterialCommunityIcons name="phone-alert" size={22} color="#FFFFFF" />
+              <View style={{ marginLeft: 12 }}>
+                <Text style={styles.bannerLabel}>{t('sos_emergency_label')}</Text>
+                <Text style={styles.bannerNumber}>112</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.callBtn}>
+              <Ionicons name="call" size={18} color="#003B71" />
+              <Text style={styles.callBtnText}>{t('sos_call')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 3. BAGIAN NOMOR DARURAT LAINNYA */}
           <Text style={styles.sectionLabel}>{t('sos_other_numbers')}</Text>
           <View style={styles.numbersCard}>
             {quickNumbers.map(item => (
@@ -153,28 +151,16 @@ export default function SOSScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  // Tambahan style untuk area yang diam (sticky)
-  stickyArea: { 
-    paddingHorizontal: 20, 
-    paddingTop: 8,
-    // Menambahkan bayangan halus agar terlihat terpisah dari area scroll
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
-    backgroundColor: 'transparent',
-    zIndex: 10,
-  },
-  // Mengurangi paddingTop karena Header & Banner sudah dipindah ke atas
-  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 },
-  header: { marginBottom: 16 },
+  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
+  header: { marginBottom: 24 }, // Margin diubah agar jarak ke label kategori rapi
   title: { fontSize: 22, fontWeight: '800', color: '#003B71', marginBottom: 4 },
   subtitle: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  
+  // Style untuk Kartu 112
   emergencyBanner: {
     backgroundColor: '#003B71', borderRadius: 16, padding: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 16, // Sedikit dikurangi agar jarak dengan konten scroll lebih pas
+    marginBottom: 24, // Jarak bawah menuju "Nomor Darurat Lainnya"
   },
   bannerLeft: { flexDirection: 'row', alignItems: 'center' },
   bannerLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
@@ -184,11 +170,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, gap: 6,
   },
   callBtnText: { fontSize: 13, fontWeight: '700', color: '#003B71' },
+  
+  // Style Lainnya
   sectionLabel: {
     fontSize: 13, fontWeight: '700', color: '#6B7280',
     letterSpacing: 0.5, marginBottom: 12, textTransform: 'uppercase',
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 28 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 }, // Margin bawah dirapikan
   card: { width: '47%', borderRadius: 16, padding: 16, borderWidth: 1, position: 'relative' },
   iconBox: { width: 50, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   cardLabel: { fontSize: 15, fontWeight: '800', marginBottom: 3 },
