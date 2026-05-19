@@ -58,10 +58,12 @@ export default function PetugasLayout() {
           tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'person-circle' : 'person-circle-outline'} focused={focused} />,
         }}
       />
-      <Tabs.Screen name="detail"   options={{ href: null }} />
-      <Tabs.Screen name="navigate" options={{ href: null }} />
-      <Tabs.Screen name="chat"     options={{ href: null }} />
-      <Tabs.Screen name="riwayat"  options={{ href: null }} />
+      <Tabs.Screen name="detail"     options={{ href: null }} />
+      <Tabs.Screen name="navigate"   options={{ href: null }} />
+      <Tabs.Screen name="chat"       options={{ href: null }} />
+      <Tabs.Screen name="riwayat"    options={{ href: null }} />
+      <Tabs.Screen name="notifikasi" options={{ href: null }} />
+      <Tabs.Screen name="bantuan"    options={{ href: null }} />
     </Tabs>
   );
 }

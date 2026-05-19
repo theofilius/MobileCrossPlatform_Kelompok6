@@ -161,9 +161,21 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(petugas)/riwayat' as any)}
           />
           <Divider />
-          <MenuRow icon="notifications-outline" iconBg="#FEF3C7" iconColor="#B45309" label="Notifikasi" />
+          <MenuRow
+            icon="notifications-outline"
+            iconBg="#FEF3C7"
+            iconColor="#B45309"
+            label="Notifikasi"
+            onPress={() => router.push('/(petugas)/notifikasi' as any)}
+          />
           <Divider />
-          <MenuRow icon="help-circle-outline" iconBg={LAVENDER_BG} iconColor={LAVENDER_FG} label="Bantuan" />
+          <MenuRow
+            icon="help-circle-outline"
+            iconBg={LAVENDER_BG}
+            iconColor={LAVENDER_FG}
+            label="Bantuan"
+            onPress={() => router.push('/(petugas)/bantuan' as any)}
+          />
         </View>
 
         {/* Logout — pill style matching Figma */}
