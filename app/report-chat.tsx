@@ -18,7 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { AuthContext } from './context/AuthContext';
+import { AuthContext } from '@/context/AuthContext';
 import {
   listReportMessages,
   sendReportMessage,

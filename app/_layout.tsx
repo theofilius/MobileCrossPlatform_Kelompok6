@@ -7,10 +7,10 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ChatNotificationOverlay } from '@/components/aegis/ChatNotificationOverlay';
-import { AuthContext, AuthProvider } from './context/AuthContext';
-import { LanguageProvider } from './context/LanguageContext';
-import { ReportsProvider } from './context/ReportsContext';
-import { SocketProvider } from './context/SocketContext';
+import { AuthContext, AuthProvider } from '@/context/AuthContext';
+import { LanguageProvider } from '@/context/LanguageContext';
+import { ReportsProvider } from '@/context/ReportsContext';
+import { SocketProvider } from '@/context/SocketContext';
 
 // Public routes — accessible without a session
 const PUBLIC_ROUTES = new Set(['index', 'login', 'signup', 'otp', 'loading']);

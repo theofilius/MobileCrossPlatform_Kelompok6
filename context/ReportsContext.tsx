@@ -5,7 +5,7 @@ import {
   updateReportStatus,
   type Report as RemoteReport,
   type ReportStatus,
-} from '../../services/reportService';
+} from '@/services/reportService';
 import { AuthContext } from './AuthContext';
 
 /**

@@ -8,7 +8,7 @@ import { router, usePathname } from 'expo-router';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AuthContext } from '../../app/context/AuthContext';
+import { AuthContext } from '@/context/AuthContext';
 import { supabase } from '../../services/supabase';
 
 const NAVY = '#003B71';

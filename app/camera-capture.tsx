@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from './context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 const { width, height } = Dimensions.get('window');
 

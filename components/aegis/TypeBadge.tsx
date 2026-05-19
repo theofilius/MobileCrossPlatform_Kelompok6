@@ -5,7 +5,7 @@ import { EMERGENCY_COLORS, EmergencyType } from '../../services/reportService';
 
 const ICON: Record<EmergencyType, string> = {
   fire: 'fire',
-  accident: 'car-crash',
+  accident: 'car-emergency',
   crime: 'shield-alert',
   disaster: 'weather-lightning-rainy',
   medical: 'medical-bag',

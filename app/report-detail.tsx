@@ -1,11 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from './context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,
@@ -53,7 +53,7 @@ const STATUS_ICON: Record<Report['status'], string> = {
 
 const TYPE_ICON: Record<EmergencyType, string> = {
   fire: 'fire',
-  accident: 'car-crash',
+  accident: 'car-emergency',
   crime: 'shield-alert',
   disaster: 'weather-lightning-rainy',
   medical: 'medical-bag',
@@ -77,7 +77,7 @@ export default function ReportDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [report, setReport] = useState<Report | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -98,7 +98,7 @@ export default function ReportDetailScreen() {
 
   useEffect(() => {
     return () => {
-      soundRef.current?.unloadAsync();
+      try { soundRef.current?.remove(); } catch { /* ignore */ }
     };
   }, []);
 
@@ -106,27 +106,24 @@ export default function ReportDetailScreen() {
     if (!report?.audioUri) return;
 
     if (isPlaying && soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      try { soundRef.current.pause(); soundRef.current.remove(); } catch { /* ignore */ }
       soundRef.current = null;
       setIsPlaying(false);
       return;
     }
 
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: report.audioUri },
-      { shouldPlay: true }
-    );
-    soundRef.current = sound;
-    setIsPlaying(true);
-
-    sound.setOnPlaybackStatusUpdate(status => {
-      if (status.isLoaded && status.didJustFinish) {
+    await setAudioModeAsync({ playsInSilentMode: true } as any);
+    const player = createAudioPlayer({ uri: report.audioUri });
+    soundRef.current = player;
+    player.addListener('playbackStatusUpdate', (status: any) => {
+      if (status.didJustFinish) {
         setIsPlaying(false);
-        soundRef.current = null;
+        try { player.remove(); } catch { /* ignore */ }
+        if (soundRef.current === player) soundRef.current = null;
       }
     });
+    player.play();
+    setIsPlaying(true);
   };
 
   if (!report) {

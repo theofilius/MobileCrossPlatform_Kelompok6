@@ -15,8 +15,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AuthContext } from '../context/AuthContext';
-import { useReports } from '../context/ReportsContext';
+import { AuthContext } from '@/context/AuthContext';
+import { useReports } from '@/context/ReportsContext';
 import { useDialog } from '../../components/aegis/Dialog';
 
 // Figma palette

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from './context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { deleteAllContacts } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
 import { useDialog } from '../components/aegis/Dialog';

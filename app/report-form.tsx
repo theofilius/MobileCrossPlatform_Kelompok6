@@ -21,8 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCamera } from '../hooks/useCamera';
 import { useLocation } from '../hooks/useLocation';
 import { clearPendingAudio, getPendingAudio } from '../utils/pendingAudio';
-import { AuthContext } from './context/AuthContext';
-import { useLanguage } from './context/LanguageContext';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,

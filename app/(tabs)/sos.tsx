@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { EmergencyType } from '../../services/reportService';
 import { TranslationKey } from '../../translations';
 
@@ -20,7 +20,7 @@ type Category = {
 
 const CATEGORIES: Category[] = [
   { type: 'fire', labelKey: 'sos_fire', subKey: 'sos_fire_sub', icon: 'fire', iconSet: 'material', color: '#DC2626', bg: '#FEF2F2' },
-  { type: 'accident', labelKey: 'sos_accident', subKey: 'sos_accident_sub', icon: 'car-crash', iconSet: 'material', color: '#EA580C', bg: '#FFF7ED' },
+  { type: 'accident', labelKey: 'sos_accident', subKey: 'sos_accident_sub', icon: 'car-emergency', iconSet: 'material', color: '#EA580C', bg: '#FFF7ED' },
   { type: 'crime', labelKey: 'sos_crime', subKey: 'sos_crime_sub', icon: 'shield-alert', iconSet: 'material', color: '#7C3AED', bg: '#F5F3FF' },
   { type: 'disaster', labelKey: 'sos_disaster', subKey: 'sos_disaster_sub', icon: 'weather-lightning-rainy', iconSet: 'material', color: '#2563EB', bg: '#EFF6FF' },
   { type: 'medical', labelKey: 'sos_medical', subKey: 'sos_medical_sub', icon: 'medical-bag', iconSet: 'material', color: '#059669', bg: '#F0FDF4' },

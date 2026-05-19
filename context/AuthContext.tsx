@@ -1,6 +1,6 @@
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useEffect, useState } from 'react';
-import { supabase } from '../../services/supabase';
+import { supabase } from '@/services/supabase';
 
 export type UserRole = 'user' | 'petugas' | 'admin';
 
@@ -94,7 +94,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     (async () => {
       let existing: Session | null = null;
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
         existing = data.session;
         if (!mounted) return;
         setSession(existing);
@@ -105,6 +106,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // (name, phone, role, photo) are filled in once fetchProfile resolves.
           setUser(buildUser(existing, {}));
         }
+      } catch (err: any) {
+        // Common case: stored refresh token is missing/expired/corrupted.
+        // Supabase throws `AuthApiError: Invalid Refresh Token: Refresh Token Not Found`.
+        // Clear the broken state silently so AuthGate routes the user to /login.
+        console.warn('[auth] session hydration failed:', err?.message ?? err);
+        try { await supabase.auth.signOut(); } catch { /* ignore */ }
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+        }
+        existing = null;
       } finally {
         if (mounted) {
           clearTimeout(watchdog);
@@ -113,18 +125,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!existing) return;
-      const profile = await fetchProfile(existing.user.id);
-      if (!mounted) return;
-      setUser(buildUser(existing, profile));
+      try {
+        const profile = await fetchProfile(existing.user.id);
+        if (!mounted) return;
+        setUser(buildUser(existing, profile));
+      } catch (err: any) {
+        // Profile enrichment is non-critical; keep the session active.
+        console.warn('[auth] fetchProfile failed:', err?.message ?? err);
+      }
     })();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      if (newSession) {
-        const profile = await fetchProfile(newSession.user.id);
-        setUser(buildUser(newSession, profile));
-      } else {
-        setUser(null);
+      try {
+        setSession(newSession);
+        if (newSession) {
+          // Seed first so role-based routing has something to work with.
+          setUser(buildUser(newSession, {}));
+          const profile = await fetchProfile(newSession.user.id);
+          setUser(buildUser(newSession, profile));
+        } else {
+          setUser(null);
+        }
+      } catch (err: any) {
+        console.warn('[auth] onAuthStateChange failed:', err?.message ?? err);
       }
     });
 

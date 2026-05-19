@@ -4,8 +4,8 @@ import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthContext } from './context/AuthContext';
-import { useLanguage } from './context/LanguageContext';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { TranslationKey } from '../translations';
 import {
   EMERGENCY_COLORS,
@@ -44,7 +44,7 @@ const STATUS_COLOR: Record<Report['status'], string> = {
 
 const TYPE_ICON: Record<EmergencyType, string> = {
   fire: 'fire',
-  accident: 'car-crash',
+  accident: 'car-emergency',
   crime: 'shield-alert',
   disaster: 'weather-lightning-rainy',
   medical: 'medical-bag',

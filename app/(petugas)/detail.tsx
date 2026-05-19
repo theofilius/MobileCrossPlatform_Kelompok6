@@ -12,10 +12,10 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useReports } from '../context/ReportsContext';
+import { useReports } from '@/context/ReportsContext';
 import { useDialog } from '../../components/aegis/Dialog';
 
 const NAVY = '#003B71';
@@ -65,12 +65,12 @@ export default function DetailScreen() {
   const [status, setStatus] = useState<string>(report.status);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
 
   useEffect(() => { setStatus(report.status); }, [reportJson]);
 
   useEffect(() => {
-    return () => { soundRef.current?.unloadAsync(); };
+    return () => { try { soundRef.current?.remove(); } catch { /* ignore */ } };
   }, []);
 
   const meta = TYPE_META[report.type] ?? TYPE_META.ambulance;
@@ -133,8 +133,7 @@ export default function DetailScreen() {
     if (!audioUri) return;
 
     if (isPlaying && soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      try { soundRef.current.pause(); soundRef.current.remove(); } catch { /* ignore */ }
       soundRef.current = null;
       setIsPlaying(false);
       return;
@@ -142,16 +141,18 @@ export default function DetailScreen() {
 
     setAudioLoading(true);
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri: audioUri }, { shouldPlay: true });
-      soundRef.current = sound;
-      setIsPlaying(true);
-      sound.setOnPlaybackStatusUpdate(s => {
-        if (s.isLoaded && s.didJustFinish) {
+      await setAudioModeAsync({ playsInSilentMode: true } as any);
+      const player = createAudioPlayer({ uri: audioUri });
+      soundRef.current = player;
+      player.addListener('playbackStatusUpdate', (s: any) => {
+        if (s.didJustFinish) {
           setIsPlaying(false);
-          soundRef.current = null;
+          try { player.remove(); } catch { /* ignore */ }
+          if (soundRef.current === player) soundRef.current = null;
         }
       });
+      player.play();
+      setIsPlaying(true);
     } catch (e: any) {
       dialog.show({ type: 'error', title: 'Gagal memutar audio', body: e?.message ?? 'Coba lagi.', primaryText: 'OK' });
     } finally {

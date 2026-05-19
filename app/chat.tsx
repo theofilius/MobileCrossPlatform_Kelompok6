@@ -18,9 +18,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthContext } from './context/AuthContext';
-import { useLanguage } from './context/LanguageContext';
-import { useSocket } from './context/SocketContext';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { useSocket } from '@/context/SocketContext';
 import {
   ChatMessage,
   getMessages,

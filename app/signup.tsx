@@ -14,8 +14,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthContext } from './context/AuthContext';
-import { useLanguage } from './context/LanguageContext';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function SignUpScreen() {
   const router = useRouter();

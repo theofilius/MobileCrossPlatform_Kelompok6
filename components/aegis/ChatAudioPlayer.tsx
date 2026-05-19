@@ -1,8 +1,9 @@
 // Compact audio player used inside chat bubbles. Single play/pause toggle
-// with an optional duration display. Cleans up the Sound instance on unmount.
+// with an optional duration display. Cleans up the player on unmount.
+// Uses expo-audio (expo-av is deprecated in SDK 54).
 
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -18,37 +19,42 @@ export function ChatAudioPlayer({
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [durationMs, setDurationMs] = useState<number | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
 
   useEffect(() => {
-    return () => { soundRef.current?.unloadAsync().catch(() => null); };
+    return () => {
+      try { playerRef.current?.remove(); } catch { /* ignore */ }
+    };
   }, []);
 
   const toggle = async () => {
-    if (playing && soundRef.current) {
-      await soundRef.current.stopAsync().catch(() => null);
-      await soundRef.current.unloadAsync().catch(() => null);
-      soundRef.current = null;
+    if (playing && playerRef.current) {
+      try { playerRef.current.pause(); playerRef.current.remove(); } catch { /* ignore */ }
+      playerRef.current = null;
       setPlaying(false);
       return;
     }
 
     setLoading(true);
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound, status } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
-      soundRef.current = sound;
-      if (status.isLoaded && status.durationMillis) {
-        setDurationMs(status.durationMillis);
-      }
-      setPlaying(true);
-      sound.setOnPlaybackStatusUpdate(s => {
-        if (s.isLoaded && s.didJustFinish) {
+      await setAudioModeAsync({ playsInSilentMode: true } as any);
+      const player = createAudioPlayer({ uri });
+      playerRef.current = player;
+
+      player.addListener('playbackStatusUpdate', (status: any) => {
+        if (status.isLoaded && typeof status.duration === 'number' && status.duration > 0 && !durationMs) {
+          // expo-audio reports duration in seconds (float)
+          setDurationMs(Math.round(status.duration * 1000));
+        }
+        if (status.didJustFinish) {
           setPlaying(false);
-          sound.unloadAsync().catch(() => null);
-          soundRef.current = null;
+          try { player.remove(); } catch { /* ignore */ }
+          playerRef.current = null;
         }
       });
+
+      player.play();
+      setPlaying(true);
     } catch {
       setPlaying(false);
     } finally {

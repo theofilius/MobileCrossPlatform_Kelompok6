@@ -1,7 +1,8 @@
 // Shared chat attachment hook: pick image from gallery/camera + record voice memo.
 // Used by both user-side (app/report-chat.tsx) and petugas-side (app/(petugas)/chat.tsx).
+// Uses expo-audio (expo-av is deprecated in SDK 54).
 
-import { Audio } from 'expo-av';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
@@ -9,18 +10,19 @@ import { Alert } from 'react-native';
 export type ImageSource = 'camera' | 'gallery';
 
 export function useChatAttachments() {
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingMs, setRecordingMs] = useState(0);
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
 
   useEffect(() => {
     return () => {
-      // Defensive cleanup on unmount
       if (tickRef.current) clearInterval(tickRef.current);
-      recordingRef.current?.stopAndUnloadAsync().catch(() => null);
+      // Defensive: stop on unmount if still active. recorder.stop is idempotent.
+      recorder.stop().catch(() => null);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Photo ────────────────────────────────────
@@ -55,19 +57,14 @@ export function useChatAttachments() {
   // ── Voice ────────────────────────────────────
   const startRecording = useCallback(async (): Promise<boolean> => {
     try {
-      const perm = await Audio.requestPermissionsAsync();
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
       if (!perm.granted) {
         Alert.alert('Izin Ditolak', 'Aktifkan akses mikrofon di pengaturan HP.');
         return false;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await rec.startAsync();
-      recordingRef.current = rec;
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true } as any);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       startedAtRef.current = Date.now();
       setRecordingMs(0);
       setIsRecording(true);
@@ -79,39 +76,32 @@ export function useChatAttachments() {
       Alert.alert('Gagal mulai rekam', e?.message ?? 'Coba lagi.');
       return false;
     }
-  }, []);
+  }, [recorder]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
-    const rec = recordingRef.current;
-    if (!rec) return null;
+    if (!isRecording) return null;
     try {
-      await rec.stopAndUnloadAsync();
-      const uri = rec.getURI();
-      return uri ?? null;
+      await recorder.stop();
+      return recorder.uri ?? null;
     } catch {
       return null;
     } finally {
-      recordingRef.current = null;
       setIsRecording(false);
       if (tickRef.current) {
         clearInterval(tickRef.current);
         tickRef.current = null;
       }
     }
-  }, []);
+  }, [recorder, isRecording]);
 
   const cancelRecording = useCallback(async () => {
-    const rec = recordingRef.current;
-    recordingRef.current = null;
     setIsRecording(false);
     if (tickRef.current) {
       clearInterval(tickRef.current);
       tickRef.current = null;
     }
-    if (rec) {
-      await rec.stopAndUnloadAsync().catch(() => null);
-    }
-  }, []);
+    await recorder.stop().catch(() => null);
+  }, [recorder]);
 
   return {
     pickImage,

@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { TranslationKey } from '../../translations';
 import {
   EMERGENCY_COLORS,
@@ -61,7 +61,7 @@ const STATUS_COLOR: Record<Report['status'], string> = {
 
 const TYPE_ICON: Record<EmergencyType, { icon: string; iconSet: 'material' | 'ionicons' }> = {
   fire: { icon: 'fire', iconSet: 'material' },
-  accident: { icon: 'car-crash', iconSet: 'material' },
+  accident: { icon: 'car-emergency', iconSet: 'material' },
   crime: { icon: 'shield-alert', iconSet: 'material' },
   disaster: { icon: 'weather-lightning-rainy', iconSet: 'material' },
   medical: { icon: 'medical-bag', iconSet: 'material' },

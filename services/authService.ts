@@ -1,5 +1,5 @@
 // Auth service — thin wrapper around Supabase Auth.
-// Note: Most app code uses AuthContext (app/context/AuthContext.tsx) directly.
+// Note: Most app code uses AuthContext (context/AuthContext.tsx) directly.
 // This module exists as a convenience layer for non-React callers
 // (e.g. one-off scripts or future migrations).
 

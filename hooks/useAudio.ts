@@ -1,5 +1,15 @@
-import { useCallback, useRef, useState } from 'react';
-import { Audio } from 'expo-av';
+// Recording + playback hook with rolling metering levels for the waveform UI.
+// Uses expo-audio (expo-av is deprecated in SDK 54).
+
+import {
+  AudioModule,
+  createAudioPlayer,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+  type AudioPlayer,
+} from 'expo-audio';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type AudioHook = {
   isRecording: boolean;
@@ -16,37 +26,44 @@ const POLL_MS = 80;
 const MAX_LEVELS = 40;
 
 export function useAudio(): AudioHook {
+  const recorder = useAudioRecorder({
+    ...RecordingPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+  } as any);
+
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [levels, setLevels] = useState<number[]>([]);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const msAccRef = useRef(0); // accumulator for duration counting
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const msAccRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      try { playerRef.current?.remove(); } catch { /* ignore */ }
+      recorder.stop().catch(() => null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') return;
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
+      if (!perm.granted) return;
 
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true } as any);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
 
-      const { recording } = await Audio.Recording.createAsync({
-        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-        isMeteringEnabled: true,
-      });
-
-      recordingRef.current = recording;
       setIsRecording(true);
       setDuration(0);
       setLevels([]);
       msAccRef.current = 0;
 
-      pollRef.current = setInterval(async () => {
-        if (!recordingRef.current) return;
-
+      pollRef.current = setInterval(() => {
         msAccRef.current += POLL_MS;
         if (msAccRef.current >= 1000) {
           msAccRef.current = 0;
@@ -54,51 +71,54 @@ export function useAudio(): AudioHook {
         }
 
         try {
-          const st = await recordingRef.current.getStatusAsync();
-          if (st.isRecording && st.metering !== undefined) {
+          const st: any = (recorder as any).getStatus?.();
+          const m = st?.metering ?? (recorder as any).currentMetering;
+          if (typeof m === 'number') {
             // metering is dBFS (–160 to 0). Map –60…0 → 0…1
-            const norm = Math.max(0, Math.min(1, (st.metering + 60) / 60));
+            const norm = Math.max(0, Math.min(1, (m + 60) / 60));
             setLevels(prev => {
               const next = [...prev, norm];
               return next.length > MAX_LEVELS ? next.slice(next.length - MAX_LEVELS) : next;
             });
           }
-        } catch {}
+        } catch { /* ignore */ }
       }, POLL_MS);
     } catch (e) {
       console.warn('Recording start failed:', e);
     }
-  }, []);
+  }, [recorder]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
-    if (!recordingRef.current) return null;
-
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
-
     setIsRecording(false);
 
     try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI() ?? null;
-      recordingRef.current = null;
+      await recorder.stop();
+      const uri = recorder.uri ?? null;
       if (uri) setAudioUri(uri);
       return uri;
     } catch {
       return null;
     }
-  }, []);
+  }, [recorder]);
 
   const playAudio = useCallback(async () => {
     if (!audioUri) return;
     try {
-      if (soundRef.current) await soundRef.current.unloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri: audioUri });
-      soundRef.current = sound;
-      await sound.playAsync();
+      try { playerRef.current?.remove(); } catch { /* ignore */ }
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true } as any);
+      const player = createAudioPlayer({ uri: audioUri });
+      playerRef.current = player;
+      player.addListener('playbackStatusUpdate', (status: any) => {
+        if (status.didJustFinish) {
+          try { player.remove(); } catch { /* ignore */ }
+          if (playerRef.current === player) playerRef.current = null;
+        }
+      });
+      player.play();
     } catch (e) {
       console.warn('Playback failed:', e);
     }

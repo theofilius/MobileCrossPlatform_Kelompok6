@@ -7,7 +7,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,8 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AuthContext } from './context/AuthContext';
-import { useLanguage } from './context/LanguageContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { useDialog } from '../components/aegis/Dialog';
 
 export default function LoginScreen() {
