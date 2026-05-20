@@ -117,7 +117,7 @@ export default function SOSScreen() {
           <View style={[styles.numbersCard, { marginBottom: 24 }]}>
             <TouchableOpacity 
               style={styles.numberRow} 
-              onPress={() => Linking.openURL('tel:112')}
+              onPress={() => Linking.openURL('tel:+6281383377674')}
             >
               <View style={[styles.numberIcon, { backgroundColor: 'rgba(220, 38, 38, 0.15)' }]}>
                 <FontAwesome5 name="font-awesome-flag" size={18} color="#DC2626" />
