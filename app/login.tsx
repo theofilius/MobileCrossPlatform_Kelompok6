@@ -17,16 +17,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { useDialog } from '../components/aegis/Dialog';
 import { validateEmail } from '@/utils/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn, signInWithGoogle } = useContext(AuthContext);
   const { t, language, setLanguage } = useLanguage();
-  const dialog = useDialog();
 
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -35,13 +32,11 @@ export default function LoginScreen() {
 
   const canSubmit =
     !submitting && !googleLoading &&
-    loginMethod === 'email' &&
     email.trim().length > 0 &&
     password.length > 0;
 
   const handleLogin = async () => {
     setErrorMessage(null);
-    if (loginMethod === 'phone') return;
 
     const v = validateEmail(email);
     if (!v.ok) { setErrorMessage(v.error); return; }
@@ -64,20 +59,6 @@ export default function LoginScreen() {
     const result = await signInWithGoogle();
     setGoogleLoading(false);
     if (!result.ok && !result.canceled) setErrorMessage(result.error);
-  };
-
-  const handlePhoneTab = () => {
-    setLoginMethod('phone');
-    dialog.show({
-      type: 'info',
-      title: language === 'id' ? 'Belum tersedia' : 'Not available',
-      body:
-        language === 'id'
-          ? 'Verifikasi nomor telepon belum tersedia. Silakan gunakan email atau Google.'
-          : 'Phone verification is not available yet. Please use email or Google.',
-      primaryText: 'OK',
-      onPrimary: () => setLoginMethod('email'),
-    });
   };
 
   const toggleLang = () => setLanguage(language === 'id' ? 'en' : 'id');
@@ -110,25 +91,6 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.form}>
-              <View style={styles.toggleContainer}>
-                <TouchableOpacity
-                  style={[styles.toggleButton, loginMethod === 'email' && styles.toggleButtonActive]}
-                  onPress={() => { setLoginMethod('email'); setErrorMessage(null); }}
-                  disabled={submitting || googleLoading}
-                >
-                  <Text style={[styles.toggleText, loginMethod === 'email' && styles.toggleTextActive]}>Email</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.toggleButton, loginMethod === 'phone' && styles.toggleButtonActive]}
-                  onPress={handlePhoneTab}
-                  disabled={submitting || googleLoading}
-                >
-                  <Text style={[styles.toggleText, loginMethod === 'phone' && styles.toggleTextActive]}>
-                    {language === 'id' ? 'No. HP' : 'Phone'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
               <TextInput
                 style={styles.input}
                 placeholder={language === 'id' ? 'Alamat email' : 'Email address'}
@@ -205,7 +167,6 @@ export default function LoginScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-      <dialog.Dialog />
     </LinearGradient>
   );
 }
@@ -258,17 +219,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 30,
-    padding: 4,
-    marginBottom: 14,
-  },
-  toggleButton: { flex: 1, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20 },
-  toggleButtonActive: { backgroundColor: '#003B71' },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#8D8E8E' },
-  toggleTextActive: { color: '#FFFFFF' },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',

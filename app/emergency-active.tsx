@@ -2,22 +2,117 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AuthContext } from '../context/AuthContext';
 import { getPrimaryContact } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
+import {
+  cancelSosEvent,
+  createSosEvent,
+  getActiveSosForUser,
+  getSosEvent,
+  recordSosLocation,
+  subscribeToSosEvent,
+} from '../services/sosService';
+import { type SosEvent, type SosStatus } from '../types/sos';
 import { useDialog } from '../components/aegis/Dialog';
 
 const EMERGENCY_FALLBACK = '112';
 
+// Per-status copy shown under the timer. Mirrors SOS_STATUS_LABELS but with
+// a verb-tense that fits the active screen ("Petugas sedang menuju..." vs
+// the pill label "Petugas Menuju Lokasi").
+const STATUS_SUBTEXT: Record<SosStatus, string> = {
+  active:       'Mencari petugas terdekat...',
+  acknowledged: 'Petugas mengakui panggilan Anda',
+  responding:   'Petugas sedang menuju lokasi Anda',
+  resolved:     'Bantuan telah tiba — keadaan aman',
+  cancelled:    'Darurat dibatalkan',
+};
+
+// Statuses where there's no point sending more GPS pings.
+function isTerminal(status: SosStatus): boolean {
+  return status === 'resolved' || status === 'cancelled';
+}
+
+// Horizontal 4-step indicator: SOS → Diakui → Menuju → Selesai.
+// `cancelled` collapses to a single muted row instead of a progress bar.
+const PROGRESS_STEPS: { key: SosStatus; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'active',       label: 'SOS',     icon: 'alert' },
+  { key: 'acknowledged', label: 'Diakui',  icon: 'checkmark' },
+  { key: 'responding',   label: 'Menuju',  icon: 'navigate' },
+  { key: 'resolved',     label: 'Selesai', icon: 'flag' },
+];
+
+function StatusProgress({ status }: { status: SosStatus }) {
+  if (status === 'cancelled') {
+    return (
+      <View style={styles.cancelledChip}>
+        <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.9)" />
+        <Text style={styles.cancelledChipText}>DIBATALKAN</Text>
+      </View>
+    );
+  }
+
+  const currentIdx = PROGRESS_STEPS.findIndex(s => s.key === status);
+
+  return (
+    <View style={styles.progressRow}>
+      {PROGRESS_STEPS.map((step, idx) => {
+        const reached = idx <= currentIdx;
+        const isCurrent = idx === currentIdx;
+        return (
+          <React.Fragment key={step.key}>
+            <View style={styles.progressStep}>
+              <View
+                style={[
+                  styles.progressDot,
+                  reached && styles.progressDotReached,
+                  isCurrent && styles.progressDotCurrent,
+                ]}
+              >
+                <Ionicons
+                  name={step.icon}
+                  size={12}
+                  color={reached ? '#DC2626' : 'rgba(255,255,255,0.5)'}
+                />
+              </View>
+              <Text style={[styles.progressLabel, reached && styles.progressLabelReached]}>
+                {step.label}
+              </Text>
+            </View>
+            {idx < PROGRESS_STEPS.length - 1 && (
+              <View style={[styles.progressBar, idx < currentIdx && styles.progressBarReached]} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function EmergencyActiveScreen() {
   const router = useRouter();
   const dialog = useDialog();
+  const { user } = useContext(AuthContext);
   const [seconds, setSeconds] = useState(0);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [sosEvent, setSosEvent] = useState<SosEvent | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // sosEventRef mirrors sosEvent so the GPS watcher callback (closed over the
+  // initial render) can see the latest status without retriggering watchPositionAsync.
+  const sosEventRef = useRef<SosEvent | null>(null);
+  const watcherRef = useRef<Location.LocationSubscription | null>(null);
+  const unsubRef = useRef<(() => void) | null>(null);
+  const mountedRef = useRef(true);
 
+  useEffect(() => {
+    sosEventRef.current = sosEvent;
+  }, [sosEvent]);
+
+  // ── Timer + vibration + notification log (no Supabase dependency) ──
   useEffect(() => {
     Vibration.vibrate([0, 400, 200, 400, 200, 400]);
 
@@ -25,17 +120,7 @@ export default function EmergencyActiveScreen() {
       setSeconds(prev => prev + 1);
     }, 1000);
 
-    // Capture location once for sharing via SMS / Maps
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-      } catch {}
-    })();
-
-    // Log to notification history
+    // Log to notification history (in-memory for now; migrates in Phase 6)
     addNotification({
       type: 'sos',
       title: 'SOS aktif',
@@ -45,6 +130,129 @@ export default function EmergencyActiveScreen() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       Vibration.cancel();
+    };
+  }, []);
+
+  // ── Supabase SOS event: create-or-resume, live track, subscribe to status ──
+  useEffect(() => {
+    if (!user) {
+      // Auth not ready (shouldn't happen because AuthGate blocks this screen)
+      // — fall back to a one-time location snapshot so the SMS/Maps buttons still work.
+      (async () => {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') return;
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          if (mountedRef.current) {
+            setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+          }
+        } catch {}
+      })();
+      return;
+    }
+
+    (async () => {
+      // 1. Initial location (best-effort; needed both for event seed and SMS share)
+      let initial: { latitude: number; longitude: number } | null = null;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          initial = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          if (mountedRef.current) setCoords(initial);
+        }
+      } catch (err) {
+        console.warn('[sos] initial location failed', err);
+      }
+
+      // 2. Resume an existing open SOS for this user, or create a new one.
+      //    Schema enforces "max 1 open SOS per user" via partial unique index,
+      //    so this prevents duplicate events if the user backs out and re-enters.
+      let event: SosEvent | null = null;
+      try {
+        event = await getActiveSosForUser(user.id);
+        if (!event) {
+          event = await createSosEvent({
+            userId: user.id,
+            latitude: initial?.latitude ?? null,
+            longitude: initial?.longitude ?? null,
+          });
+        }
+      } catch (err) {
+        console.warn('[sos] create/resume failed', err);
+        return;
+      }
+      if (!mountedRef.current || !event) return;
+      setSosEvent(event);
+
+      // 3. Subscribe to status changes from petugas/admin.
+      unsubRef.current = subscribeToSosEvent(event.id, async () => {
+        try {
+          const fresh = await getSosEvent(event!.id);
+          if (!fresh || !mountedRef.current) return;
+          setSosEvent(fresh);
+          // Petugas resolved or user cancelled elsewhere → stop sending pings.
+          if (isTerminal(fresh.status) && watcherRef.current) {
+            watcherRef.current.remove();
+            watcherRef.current = null;
+          }
+        } catch (err) {
+          console.warn('[sos] refresh on subscribe failed', err);
+        }
+      });
+
+      // 4. Live location watcher — every 5s OR every 10m of movement, whichever first.
+      //    Each tick: append to sos_locations + advance sos_events.current_lat/lng.
+      try {
+        const sub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 10,
+          },
+          async (pos) => {
+            const current = sosEventRef.current;
+            if (!current || isTerminal(current.status)) return;
+            if (mountedRef.current) {
+              setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+            }
+            try {
+              await recordSosLocation(
+                current.id,
+                pos.coords.latitude,
+                pos.coords.longitude,
+                pos.coords.accuracy ?? null,
+              );
+            } catch (err) {
+              console.warn('[sos] recordSosLocation failed', err);
+            }
+          },
+        );
+        if (!mountedRef.current) {
+          sub.remove();
+          return;
+        }
+        watcherRef.current = sub;
+      } catch (err) {
+        console.warn('[sos] watchPositionAsync failed', err);
+      }
+    })();
+  }, [user]);
+
+  // ── Cleanup on unmount: stop watcher + unsubscribe (but DO NOT auto-cancel) ──
+  //    Backing out of the screen leaves the SOS open so petugas can still respond.
+  //    Only the explicit cancel button below transitions the row to 'cancelled'.
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (watcherRef.current) {
+        watcherRef.current.remove();
+        watcherRef.current = null;
+      }
+      if (unsubRef.current) {
+        unsubRef.current();
+        unsubRef.current = null;
+      }
     };
   }, []);
 
@@ -114,13 +322,29 @@ export default function EmergencyActiveScreen() {
   };
 
   const handleCancel = () => {
+    const current = sosEventRef.current;
+    // If the SOS already terminated (petugas resolved or another device
+    // cancelled it), this button just dismisses the screen — no API call.
+    if (!current || isTerminal(current.status)) {
+      router.back();
+      return;
+    }
+
     dialog.show({
       type: 'warning',
       title: 'Batalkan Darurat?',
       body: 'Mode darurat akan dinonaktifkan dan kontak kamu akan diberitahu.',
       primaryText: 'Batalkan Darurat',
       secondaryText: 'Tidak, tetap aktif',
-      onPrimary: () => router.back()
+      onPrimary: async () => {
+        try {
+          await cancelSosEvent(current.id);
+        } catch (err) {
+          console.warn('[sos] cancel failed', err);
+          // Still navigate back — the screen has no real "stay" recovery path.
+        }
+        router.back();
+      }
     });
   };
 
@@ -152,15 +376,24 @@ export default function EmergencyActiveScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Middle — timer */}
+        {/* Middle — timer + lifecycle progress + status caption */}
         <View style={styles.timerSection}>
           <Text style={styles.timer}>{formatTime(seconds)}</Text>
+
+          <StatusProgress status={sosEvent?.status ?? 'active'} />
+
           <Text style={styles.statusText}>
-            {(() => {
-              const p = getPrimaryContact();
-              return p ? `Menghubungi ${p.name}...` : 'Menghubungi nomor darurat 112...';
-            })()}
+            {sosEvent ? STATUS_SUBTEXT[sosEvent.status] : 'Menyambungkan ke petugas darurat...'}
           </Text>
+          {(() => {
+            const p = getPrimaryContact();
+            if (!p) return null;
+            return (
+              <Text style={styles.statusSubtext}>
+                Kontak utama: {p.name}
+              </Text>
+            );
+          })()}
         </View>
 
         {/* Bottom — actions + cancel */}
@@ -264,8 +497,84 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  statusSubtext: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
     fontWeight: '500',
+    marginTop: 6,
+  },
+  // ── Lifecycle progress row ──
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 4,
+    marginBottom: 14,
+  },
+  progressStep: { alignItems: 'center', width: 56 },
+  progressDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressDotReached: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  progressDotCurrent: {
+    shadowColor: '#FFFFFF',
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  progressLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 4,
+    letterSpacing: 0.3,
+  },
+  progressLabelReached: {
+    color: '#FFFFFF',
+  },
+  progressBar: {
+    flex: 1,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginTop: 12,
+    maxWidth: 30,
+  },
+  progressBarReached: {
+    backgroundColor: '#FFFFFF',
+  },
+
+  // ── Cancelled chip (overrides progress when status === 'cancelled') ──
+  cancelledChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    marginBottom: 14,
+  },
+  cancelledChipText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 1.5,
   },
 
   // Bottom

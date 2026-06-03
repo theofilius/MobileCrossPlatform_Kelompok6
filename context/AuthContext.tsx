@@ -12,6 +12,9 @@ export type User = {
   phone?: string;
   photoUri?: string;
   role: UserRole;
+  // Komunitas Siaga: opt-in to receive nearby SOS alerts. Stored as
+  // profiles.community_siaga_opt_in (added in Phase 1 migration).
+  communitySiagaOptIn: boolean;
 };
 
 export type AuthOpResult = { ok: true } | { ok: false; error: string };
@@ -67,7 +70,7 @@ export const AuthContext = createContext<AuthContextType>({
 async function fetchProfile(userId: string): Promise<Partial<User>> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, email, phone, photo_uri, role')
+    .select('name, email, phone, photo_uri, role, community_siaga_opt_in')
     .eq('id', userId)
     .maybeSingle();
 
@@ -81,6 +84,7 @@ async function fetchProfile(userId: string): Promise<Partial<User>> {
     phone: data.phone ?? undefined,
     photoUri: data.photo_uri ?? undefined,
     role,
+    communitySiagaOptIn: (data as { community_siaga_opt_in?: boolean }).community_siaga_opt_in ?? false,
   };
 }
 
@@ -92,6 +96,7 @@ function buildUser(session: Session, profile: Partial<User>): User {
     phone: profile.phone,
     photoUri: profile.photoUri,
     role: profile.role ?? 'user',
+    communitySiagaOptIn: profile.communitySiagaOptIn ?? false,
   };
 }
 
@@ -283,6 +288,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.email !== undefined) patch.email = data.email;
     if (data.phone !== undefined) patch.phone = data.phone;
     if (data.photoUri !== undefined) patch.photo_uri = data.photoUri;
+    if (data.communitySiagaOptIn !== undefined) patch.community_siaga_opt_in = data.communitySiagaOptIn;
     if (Object.keys(patch).length === 0) return;
 
     const { error } = await supabase

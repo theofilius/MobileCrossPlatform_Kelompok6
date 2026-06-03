@@ -1,9 +1,10 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
+  Linking,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -18,6 +19,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '@/context/AuthContext';
 import { useReports } from '@/context/ReportsContext';
 import { useDialog } from '../../components/aegis/Dialog';
+import {
+  listActiveSosEvents,
+  subscribeToSosEvents,
+} from '../../services/sosService';
+import {
+  SOS_STATUS_COLORS,
+  SOS_STATUS_SHORT,
+  type SosEvent,
+} from '../../types/sos';
 
 // Figma palette
 const NAVY = '#003B71';
@@ -59,6 +69,95 @@ function TypeIcon({ meta, size = 22 }: { meta: typeof TYPE_META[string]; size?: 
     return <MaterialCommunityIcons name={meta.icon as any} size={size} color="#fff" />;
   }
   return <Ionicons name={meta.icon as any} size={size} color="#fff" />;
+}
+
+// "5 mnt lalu" — short Indonesian relative time, enough granularity for SOS triage.
+function relativeTime(d: Date): string {
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'Baru saja';
+  const mins = Math.floor(diff / 60);
+  if (mins < 60) return `${mins} mnt lalu`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} jam lalu`;
+  return `${Math.floor(hrs / 24)} hari lalu`;
+}
+
+function ActiveSosCard({
+  event,
+  onDetail,
+  onCall,
+}: {
+  event: SosEvent;
+  onDetail: (e: SosEvent) => void;
+  onCall: (e: SosEvent) => void;
+}) {
+  const pillColor = SOS_STATUS_COLORS[event.status];
+  return (
+    <TouchableOpacity activeOpacity={0.94} onPress={() => onDetail(event)} style={styles.sosCard}>
+      <View style={styles.sosCardAccent} />
+
+      <View style={styles.sosCardInner}>
+        <View style={styles.sosCardHeader}>
+          <View style={styles.sosIconWrap}>
+            <MaterialCommunityIcons name="shield-alert" size={22} color="#fff" />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={styles.sosCardTitleRow}>
+              <Text style={styles.sosCardTitle} numberOfLines={1}>
+                {event.reporterName ?? 'Pengguna'}
+              </Text>
+              <View style={[styles.sosStatusPill, { backgroundColor: pillColor }]}>
+                <Text style={styles.sosStatusPillText}>{SOS_STATUS_SHORT[event.status]}</Text>
+              </View>
+            </View>
+            <Text style={styles.sosCardMeta} numberOfLines={1}>
+              {event.reporterPhone ?? 'Nomor tidak tersedia'} · {relativeTime(event.startedAt)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.sosCardLocation}>
+          <Ionicons name="location" size={12} color="#DC2626" />
+          <Text style={styles.sosCardLocationText} numberOfLines={1}>
+            {event.currentLat !== null && event.currentLng !== null
+              ? `${event.currentLat.toFixed(5)}, ${event.currentLng.toFixed(5)}`
+              : 'Lokasi belum tersedia'}
+          </Text>
+        </View>
+
+        <View style={styles.sosCardActions}>
+          <TouchableOpacity
+            style={styles.sosBtnSecondary}
+            onPress={() => onCall(event)}
+            activeOpacity={0.85}
+            disabled={!event.reporterPhone}
+          >
+            <Ionicons
+              name="call"
+              size={14}
+              color={event.reporterPhone ? '#DC2626' : '#CBD5E1'}
+            />
+            <Text
+              style={[
+                styles.sosBtnSecondaryText,
+                !event.reporterPhone && { color: '#CBD5E1' },
+              ]}
+            >
+              Telepon
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.sosBtnPrimary}
+            onPress={() => onDetail(event)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="map" size={14} color="#fff" />
+            <Text style={styles.sosBtnPrimaryText}>Lihat Detail</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 function ReportCard({ item, onAccept, onDetail, onChat }: any) {
@@ -137,6 +236,48 @@ export default function DashboardScreen() {
   const { reports, loading, error, refresh, acceptReport } = useReports();
   const dialog = useDialog();
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [activeSos, setActiveSos] = useState<SosEvent[]>([]);
+
+  // SOS feed: initial fetch + realtime subscription. Re-fetch full list on
+  // any change (cheap: typically < 10 open SOS at a time) so we don't have
+  // to merge INSERT/UPDATE/DELETE deltas by hand.
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const list = await listActiveSosEvents();
+        if (mounted) setActiveSos(list);
+      } catch (err) {
+        console.warn('[sos] dashboard fetch failed', err);
+      }
+    };
+    load();
+    const unsub = subscribeToSosEvents(() => { load(); });
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, []);
+
+  const openSosDetail = (event: SosEvent) => {
+    router.push({
+      pathname: '/(petugas)/sos-detail' as any,
+      params: { sosId: event.id },
+    });
+  };
+
+  const callReporter = (event: SosEvent) => {
+    if (!event.reporterPhone) return;
+    const phone = event.reporterPhone.replace(/[^\d+]/g, '');
+    Linking.openURL(`tel:${phone}`).catch(() =>
+      dialog.show({
+        type: 'error',
+        title: 'Gagal',
+        body: 'Tidak dapat melakukan panggilan.',
+        primaryText: 'OK',
+      }),
+    );
+  };
 
   // Petugas can hold multiple active cases concurrently — no single-active lock.
 
@@ -209,6 +350,30 @@ export default function DashboardScreen() {
                 <Text style={styles.dutyText}>BERTUGAS</Text>
               </View>
             </View>
+
+            {/* SOS Aktif — only renders when ≥1 open SOS exists. Above
+                Laporan Masuk so it can't be missed during triage. */}
+            {activeSos.length > 0 && (
+              <View style={styles.sosSection}>
+                <View style={styles.sosSectionHeader}>
+                  <View style={styles.sosSectionTitleWrap}>
+                    <View style={styles.sosPulseDot} />
+                    <Text style={styles.sosSectionTitle}>SOS Aktif</Text>
+                  </View>
+                  <View style={styles.sosCountBadge}>
+                    <Text style={styles.sosCountBadgeText}>{activeSos.length}</Text>
+                  </View>
+                </View>
+                {activeSos.map(event => (
+                  <ActiveSosCard
+                    key={event.id}
+                    event={event}
+                    onDetail={openSosDetail}
+                    onCall={callReporter}
+                  />
+                ))}
+              </View>
+            )}
 
             {/* Page title */}
             <Text style={styles.pageTitle}>Laporan Masuk</Text>
@@ -406,4 +571,71 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#FECACA',
   },
   errorText: { flex: 1, fontSize: 12, color: '#991B1B', fontWeight: '600' },
+
+  // ── SOS Aktif section ──
+  sosSection: { marginBottom: 22 },
+  sosSectionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sosSectionTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sosSectionTitle: { fontSize: 17, fontWeight: '800', color: '#991B1B', letterSpacing: -0.2 },
+  sosPulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#DC2626' },
+  sosCountBadge: {
+    minWidth: 22, height: 22, borderRadius: 11,
+    paddingHorizontal: 7,
+    backgroundColor: '#DC2626',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sosCountBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+
+  // ── SOS card ──
+  sosCard: {
+    backgroundColor: CARD,
+    borderRadius: 18,
+    marginBottom: 10,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  sosCardAccent: { width: 4, backgroundColor: '#DC2626' },
+  sosCardInner: { flex: 1, padding: 14, gap: 10 },
+  sosCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sosIconWrap: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: '#DC2626',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sosCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  sosCardTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: TEXT, letterSpacing: -0.2 },
+  sosStatusPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  sosStatusPillText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  sosCardMeta: { fontSize: 12, color: MUTED, fontWeight: '600' },
+  sosCardLocation: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 7,
+  },
+  sosCardLocationText: { flex: 1, fontSize: 11.5, color: '#991B1B', fontWeight: '700' },
+  sosCardActions: { flexDirection: 'row', gap: 8 },
+  sosBtnPrimary: {
+    flex: 1, height: 40, borderRadius: 20,
+    backgroundColor: '#DC2626',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  sosBtnPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  sosBtnSecondary: {
+    flex: 1, height: 40, borderRadius: 20,
+    borderWidth: 1.5, borderColor: '#DC2626',
+    backgroundColor: '#fff',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  sosBtnSecondaryText: { color: '#DC2626', fontSize: 13, fontWeight: '700' },
 });

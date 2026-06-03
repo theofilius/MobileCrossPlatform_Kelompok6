@@ -13,3 +13,5 @@ export type { StatusBadgeProps } from './StatusBadge';
 
 export { TypeBadge } from './TypeBadge';
 export type { TypeBadgeProps } from './TypeBadge';
+
+export { CommunitySiagaBanner } from './CommunitySiagaBanner';

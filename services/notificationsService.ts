@@ -13,32 +13,10 @@ export type Notification = {
 
 type Listener = (items: Notification[]) => void;
 
-const store: Notification[] = [
-  {
-    id: 'seed-1',
-    type: 'permission',
-    title: 'Izinkan akses lokasi',
-    body: 'Lokasi membantu tim respons cepat menemukan kamu saat darurat.',
-    read: false,
-    createdAt: new Date(Date.now() - 600000),
-  },
-  {
-    id: 'seed-2',
-    type: 'security',
-    title: 'Login dari perangkat baru',
-    body: 'Akun kamu diakses dari iPhone, sekitar 20 menit lalu.',
-    read: false,
-    createdAt: new Date(Date.now() - 1200000),
-  },
-  {
-    id: 'seed-3',
-    type: 'permission',
-    title: 'Izin notifikasi belum aktif',
-    body: 'Aktifkan notifikasi agar tidak melewatkan info darurat.',
-    read: true,
-    createdAt: new Date(Date.now() - 3600000),
-  },
-];
+// Starts empty. Notifications accumulate from real app events (SOS triggered,
+// permission prompts, security warnings, etc.). Phase 6 will migrate this
+// to the Supabase `notifications` table that already exists in schema.
+const store: Notification[] = [];
 
 const listeners: Listener[] = [];
 

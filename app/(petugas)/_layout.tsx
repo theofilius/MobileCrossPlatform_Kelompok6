@@ -64,6 +64,7 @@ export default function PetugasLayout() {
       <Tabs.Screen name="riwayat"    options={{ href: null }} />
       <Tabs.Screen name="notifikasi" options={{ href: null }} />
       <Tabs.Screen name="bantuan"    options={{ href: null }} />
+      <Tabs.Screen name="sos-detail" options={{ href: null }} />
     </Tabs>
   );
 }

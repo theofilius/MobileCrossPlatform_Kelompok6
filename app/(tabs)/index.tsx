@@ -27,6 +27,8 @@ import { AuthContext } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSOS } from '../../context/SOSContext';
 import { getContactCount, subscribe as subscribeContacts } from '../../services/contactsService';
+import { getActiveSosForUser, subscribeToSosEvents } from '../../services/sosService';
+import { type SosEvent } from '../../types/sos';
 
 const { width } = Dimensions.get('window');
 
@@ -38,6 +40,9 @@ export default function HomeScreen() {
 
   const [locationName, setLocationName] = useState('Memuat lokasi...');
   const [contactCount, setContactCount] = useState(getContactCount());
+  // Tracks the user's currently-open SOS (if they backed out of emergency-active
+  // without cancelling). Renders a banner so they can jump back in.
+  const [openSos, setOpenSos] = useState<SosEvent | null>(null);
 
   // Shared value untuk animasi pulse
   const pulse = useSharedValue(1);
@@ -46,6 +51,29 @@ export default function HomeScreen() {
   useEffect(() => {
     return subscribeContacts(c => setContactCount(c.length));
   }, []);
+
+  // ── Active SOS lookup + realtime ────────────────────────
+  useEffect(() => {
+    if (!user) {
+      setOpenSos(null);
+      return;
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const ev = await getActiveSosForUser(user.id);
+        if (!cancelled) setOpenSos(ev);
+      } catch (err) {
+        console.warn('[home] getActiveSosForUser failed', err);
+      }
+    };
+    refresh();
+    const unsub = subscribeToSosEvents(() => refresh());
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [user]);
 
   // ── Lokasi ──────────────────────────────────────────────
   useEffect(() => {
@@ -137,6 +165,26 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* ── Active SOS Banner — only when user has an open SOS event ── */}
+          {openSos && (
+            <TouchableOpacity
+              style={styles.activeSosBanner}
+              onPress={() => router.push('/emergency-active' as any)}
+              activeOpacity={0.9}
+            >
+              <View style={styles.activeSosIconBox}>
+                <MaterialCommunityIcons name="shield-alert" size={20} color="#fff" />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.activeSosTitle}>SOS Anda masih aktif</Text>
+                <Text style={styles.activeSosSub} numberOfLines={1}>
+                  Ketuk untuk kembali ke layar darurat
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
+
           {/* ── Status Card ───────────────────────────── */}
           <View style={styles.statusCard}>
             <Text style={styles.greeting}>
@@ -145,7 +193,7 @@ export default function HomeScreen() {
             <View style={styles.statusRow}>
               <View style={[styles.statusChip, styles.chipGreen]}>
                 <View style={styles.greenDot} />
-                <Text style={styles.chipGreenText}>{t('home_gps')}</Text>
+                <Text style={styles.chipGreenText} numberOfLines={1}>{t('home_gps')}</Text>
               </View>
 
               <TouchableOpacity
@@ -154,14 +202,14 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
               >
                 <Ionicons name="people" size={12} color="#003B71" />
-                <Text style={styles.chipBlueText}>
+                <Text style={styles.chipBlueText} numberOfLines={1}>
                   {contactCount} {t('home_contacts')}
                 </Text>
               </TouchableOpacity>
 
               <View style={[styles.statusChip, styles.chipGreen]}>
                 <MaterialCommunityIcons name="shield-check" size={13} color="#16A34A" />
-                <Text style={styles.chipGreenText}>{t('home_protected')}</Text>
+                <Text style={styles.chipGreenText} numberOfLines={1}>{t('home_protected')}</Text>
               </View>
             </View>
           </View>
@@ -264,6 +312,23 @@ const styles = StyleSheet.create({
   locationText: { fontSize: 12, color: '#003B71', fontWeight: '700', marginLeft: 2 },
   bellBtn: { padding: 4 },
 
+  // ── Active SOS banner (own open SOS) ──────────────────
+  activeSosBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#DC2626',
+    borderRadius: 14,
+    paddingHorizontal: 12, paddingVertical: 12,
+    shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
+  },
+  activeSosIconBox: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  activeSosTitle: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: -0.2 },
+  activeSosSub: { color: 'rgba(255,255,255,0.9)', fontSize: 11.5, fontWeight: '600', marginTop: 1 },
+
   // ── Status Card ───────────────────────────────────────
   statusCard: {
     backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16,
@@ -271,16 +336,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
   greeting: { fontSize: 16, fontWeight: '800', color: '#003B71', marginBottom: 12 },
-  statusRow: { flexDirection: 'row', gap: 8 },
+  statusRow: { flexDirection: 'row', gap: 6 },
   statusChip: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 8, paddingVertical: 6, borderRadius: 20, gap: 4,
+    paddingHorizontal: 6, paddingVertical: 6, borderRadius: 20, gap: 4,
+    minWidth: 0, // allow text inside to shrink/ellipsize instead of pushing the chip wide
   },
   chipGreen: { backgroundColor: 'rgba(22,163,74,0.1)' },
   chipBlue: { backgroundColor: 'rgba(0,59,113,0.08)' },
   greenDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#16A34A' },
-  chipGreenText: { fontSize: 11, fontWeight: '700', color: '#16A34A' },
-  chipBlueText: { fontSize: 11, fontWeight: '700', color: '#003B71' },
+  chipGreenText: { flexShrink: 1, fontSize: 11, fontWeight: '700', color: '#16A34A' },
+  chipBlueText: { flexShrink: 1, fontSize: 11, fontWeight: '700', color: '#003B71' },
 
   // ── Emergency Card ────────────────────────────────────
   emergencyCard: {

@@ -1,10 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { Linking, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '@/context/LanguageContext';
+import { AuthContext } from '@/context/AuthContext';
 import { deleteAllContacts } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
 import { useDialog } from '../components/aegis/Dialog';
@@ -47,12 +48,31 @@ export default function PrivacySecurityScreen() {
   const router = useRouter();
   const { t } = useLanguage();
   const dialog = useDialog();
+  const { user, updateUser } = useContext(AuthContext);
 
-  const [locationOn, setLocationOn] = useState(true);
-  const [notifOn, setNotifOn] = useState(true);
-  const [contactsOn, setContactsOn] = useState(false);
-  const [confirmSOS, setConfirmSOS] = useState(true);
-  const [pinEdit, setPinEdit] = useState(false);
+  // Komunitas Siaga: persists to profiles.community_siaga_opt_in.
+  // Optimistic local state so the switch animates instantly while the DB
+  // round-trip happens in the background.
+  const [siagaBusy, setSiagaBusy] = useState(false);
+  const siagaOptIn = user?.communitySiagaOptIn ?? false;
+
+  const handleToggleSiaga = async (next: boolean) => {
+    if (siagaBusy) return;
+    setSiagaBusy(true);
+    try {
+      await updateUser({ communitySiagaOptIn: next });
+    } catch (err) {
+      console.warn('[ps] toggle siaga failed', err);
+      dialog.show({
+        type: 'error',
+        title: 'Gagal',
+        body: 'Tidak dapat menyimpan preferensi. Coba lagi.',
+        primaryText: 'OK',
+      });
+    } finally {
+      setSiagaBusy(false);
+    }
+  };
 
   const handleDeleteAll = () => {
     dialog.show({
@@ -92,58 +112,47 @@ export default function PrivacySecurityScreen() {
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-          {/* Permissions */}
-          <Text style={styles.section}>{t('ps_perm_section')}</Text>
-          <View style={styles.card}>
-            <ToggleRow
-              icon="map-marker"
-              title={t('ps_perm_location')}
-              subtitle={t('ps_perm_location_sub')}
-              value={locationOn}
-              onValueChange={setLocationOn}
-              color="#2563EB"
-            />
-            <View style={styles.sep} />
-            <ToggleRow
-              icon="bell"
-              title={t('ps_perm_notif')}
-              subtitle={t('ps_perm_notif_sub')}
-              value={notifOn}
-              onValueChange={setNotifOn}
-              color="#EA580C"
-            />
-            <View style={styles.sep} />
-            <ToggleRow
-              icon="account-group"
-              title={t('ps_perm_contacts')}
-              subtitle={t('ps_perm_contacts_sub')}
-              value={contactsOn}
-              onValueChange={setContactsOn}
-              color="#059669"
-            />
-          </View>
+          {/* Komunitas Siaga — opt-in nearby SOS alerts. Only meaningful for
+              regular users; petugas/admin get the dashboard feed instead. */}
+          {user?.role === 'user' && (
+            <>
+              <Text style={styles.section}>Komunitas Siaga</Text>
+              <View style={styles.card}>
+                <ToggleRow
+                  icon="shield-account"
+                  title="Terima alert SOS sekitar"
+                  subtitle="Dapatkan notifikasi jika ada pengguna lain memicu SOS dalam radius 5 km."
+                  value={siagaOptIn}
+                  onValueChange={handleToggleSiaga}
+                  color="#DC2626"
+                />
+              </View>
+              <Text style={styles.siagaHint}>
+                Lokasi presisi korban tidak akan ditampilkan. Anda hanya melihat jarak perkiraan.
+              </Text>
+            </>
+          )}
 
-          {/* Safety */}
-          <Text style={styles.section}>{t('ps_safety_section')}</Text>
-          <View style={styles.card}>
-            <ToggleRow
-              icon="shield-alert"
-              title={t('ps_confirm_sos')}
-              subtitle={t('ps_confirm_sos_sub')}
-              value={confirmSOS}
-              onValueChange={setConfirmSOS}
-              color="#DC2626"
-            />
-            <View style={styles.sep} />
-            <ToggleRow
-              icon="lock"
-              title={t('ps_pin_edit')}
-              subtitle={t('ps_pin_edit_sub')}
-              value={pinEdit}
-              onValueChange={setPinEdit}
-              color="#7C3AED"
-            />
-          </View>
+          {/* Izin Aplikasi — point user to OS settings rather than fake toggles.
+              Lokasi, notifikasi, dan kontak diatur di system settings; tombol
+              di app ini hanya bisa membuka panel pengaturan. */}
+          <Text style={styles.section}>{t('ps_perm_section')}</Text>
+          <TouchableOpacity
+            style={styles.linkCard}
+            activeOpacity={0.85}
+            onPress={() => Linking.openSettings().catch(() => undefined)}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#2563EB18' }]}>
+              <Ionicons name="settings-sharp" size={20} color="#2563EB" />
+            </View>
+            <View style={styles.info}>
+              <Text style={styles.title}>Kelola izin di Pengaturan</Text>
+              <Text style={styles.subtitle}>
+                Lokasi, notifikasi, dan kontak diatur di pengaturan sistem perangkat Anda.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
 
           {/* Data Usage */}
           <Text style={styles.section}>{t('ps_data_section')}</Text>
@@ -193,6 +202,13 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
+  linkCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+  },
 
   row: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   iconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
@@ -202,6 +218,7 @@ const styles = StyleSheet.create({
   sep: { height: 1, backgroundColor: '#F3F4F6', marginLeft: 66 },
 
   dataMsg: { fontSize: 13, color: '#374151', lineHeight: 20 },
+  siagaHint: { fontSize: 11.5, color: '#6B7280', marginTop: 8, marginLeft: 4, lineHeight: 16 },
 
   deleteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
