@@ -227,8 +227,8 @@ export const translations = {
 
     // Notifications
     notif_title: 'Notifikasi',
-    notif_empty: 'Tidak ada notifikasi',
-    notif_empty_sub: 'Pemberitahuan akan muncul di sini',
+    notif_empty: 'Belum ada notifikasi',
+    notif_empty_sub: 'Notifikasi SOS, panggilan darurat, dan update kontak akan muncul di sini.',
     notif_mark_all_read: 'Tandai semua dibaca',
     notif_unread: 'baru',
 
@@ -533,8 +533,8 @@ export const translations = {
 
     // Notifications
     notif_title: 'Notifications',
-    notif_empty: 'No notifications',
-    notif_empty_sub: 'Alerts and updates will appear here',
+    notif_empty: 'No notifications yet',
+    notif_empty_sub: 'SOS events, emergency calls, and contact updates will appear here.',
     notif_mark_all_read: 'Mark all as read',
     notif_unread: 'new',
 

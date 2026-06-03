@@ -4,21 +4,24 @@
 
 import { supabase } from './supabase';
 
-export type MediaKind = 'photo' | 'audio';
+export type MediaKind = 'photo' | 'audio' | 'avatar';
 
 const BUCKETS: Record<MediaKind, string> = {
   photo: 'report-photos',
   audio: 'report-audio',
+  avatar: 'avatars',
 };
 
 const EXT: Record<MediaKind, string> = {
   photo: 'jpg',
   audio: 'm4a',
+  avatar: 'jpg',
 };
 
 const CONTENT_TYPE: Record<MediaKind, string> = {
   photo: 'image/jpeg',
   audio: 'audio/m4a',
+  avatar: 'image/jpeg',
 };
 
 /**
@@ -53,4 +56,9 @@ export async function uploadToStorage(
 
   const { data } = supabase.storage.from(BUCKETS[kind]).getPublicUrl(path);
   return data.publicUrl;
+}
+
+/** Convenience wrapper for the most common avatar upload call site. */
+export function uploadAvatar(uri: string, userId: string): Promise<string> {
+  return uploadToStorage(uri, 'avatar', userId);
 }

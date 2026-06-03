@@ -2,6 +2,8 @@ import { Session } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useEffect, useState } from 'react';
 import { supabase } from '@/services/supabase';
 import { signInWithGoogle as oauthSignInWithGoogle, type OAuthResult } from '@/services/oauthService';
+import { initContactsForUser, teardownContacts } from '@/services/contactsService';
+import { initNotificationsForUser, teardownNotifications } from '@/services/notificationsService';
 
 export type UserRole = 'user' | 'petugas' | 'admin';
 
@@ -140,6 +142,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const profile = await fetchProfile(existing.user.id);
         if (!mounted) return;
         setUser(buildUser(existing, profile));
+        // Boot per-user data services (cache + realtime) once we know the user.
+        initContactsForUser(existing.user.id).catch((e) =>
+          console.warn('[auth] initContactsForUser failed:', e?.message ?? e),
+        );
+        initNotificationsForUser(existing.user.id).catch((e) =>
+          console.warn('[auth] initNotificationsForUser failed:', e?.message ?? e),
+        );
       } catch (err: any) {
         console.warn('[auth] fetchProfile failed:', err?.message ?? err);
       }
@@ -152,8 +161,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(buildUser(newSession, {}));
           const profile = await fetchProfile(newSession.user.id);
           setUser(buildUser(newSession, profile));
+          initContactsForUser(newSession.user.id).catch((e) =>
+            console.warn('[auth] initContactsForUser failed:', e?.message ?? e),
+          );
+          initNotificationsForUser(newSession.user.id).catch((e) =>
+            console.warn('[auth] initNotificationsForUser failed:', e?.message ?? e),
+          );
         } else {
           setUser(null);
+          teardownContacts();
+          teardownNotifications();
         }
       } catch (err: any) {
         console.warn('[auth] onAuthStateChange failed:', err?.message ?? err);

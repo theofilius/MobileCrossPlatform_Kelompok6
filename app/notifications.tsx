@@ -105,7 +105,9 @@ export default function NotificationsScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <MaterialCommunityIcons name="bell-off-outline" size={56} color="#D1D5DB" />
+              <View style={styles.emptyIconWrap}>
+                <MaterialCommunityIcons name="bell-outline" size={40} color="#94A3B8" />
+              </View>
               <Text style={styles.emptyTitle}>{t('notif_empty')}</Text>
               <Text style={styles.emptySub}>{t('notif_empty_sub')}</Text>
             </View>
@@ -169,7 +171,13 @@ const styles = StyleSheet.create({
   body: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
   time: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginTop: 2 },
 
-  empty: { alignItems: 'center', paddingTop: 80, gap: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#9CA3AF', marginTop: 4 },
-  emptySub: { fontSize: 13, color: '#D1D5DB', textAlign: 'center', paddingHorizontal: 32 },
+  empty: { alignItems: 'center', paddingTop: 80, gap: 6, paddingHorizontal: 16 },
+  emptyIconWrap: {
+    width: 76, height: 76, borderRadius: 38,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: '#475569', marginTop: 4 },
+  emptySub: { fontSize: 13, color: '#94A3B8', textAlign: 'center', paddingHorizontal: 24, lineHeight: 18 },
 });

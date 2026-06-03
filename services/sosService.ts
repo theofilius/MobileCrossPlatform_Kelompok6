@@ -7,6 +7,7 @@ import {
   type SosEvent,
   type SosLocation,
   type SosStatus,
+  type UserTrustScore,
 } from '../types/sos';
 
 type ProfileLite = { name: string | null; phone: string | null };
@@ -23,6 +24,8 @@ type DbSosEventRow = {
   cancelled_at: string | null;
   handled_by: string | null;
   note: string | null;
+  marked_false_at: string | null;
+  marked_false_by: string | null;
   created_at: string;
   updated_at: string;
   // PostgREST may return embed as object OR array depending on join shape.
@@ -47,7 +50,8 @@ function pickProfile(p: DbSosEventRow['profiles']): ProfileLite | null {
 const EVENT_SELECT = `
   id, user_id, status, current_lat, current_lng,
   started_at, acknowledged_at, resolved_at, cancelled_at,
-  handled_by, note, created_at, updated_at,
+  handled_by, note, marked_false_at, marked_false_by,
+  created_at, updated_at,
   profiles:profiles!sos_events_user_id_profiles_fk ( name, phone )
 `;
 
@@ -65,6 +69,8 @@ function rowToEvent(row: DbSosEventRow): SosEvent {
     cancelledAt: row.cancelled_at ? new Date(row.cancelled_at) : null,
     handledBy: row.handled_by,
     note: row.note,
+    markedFalseAt: row.marked_false_at ? new Date(row.marked_false_at) : null,
+    markedFalseBy: row.marked_false_by,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at ?? row.created_at),
     reporterName: profile?.name ?? undefined,
@@ -158,6 +164,72 @@ export const acknowledgeSosEvent = (sosId: string, handledBy: string) =>
 export const respondToSosEvent  = (sosId: string, handledBy: string) =>
   updateSosStatus(sosId, 'responding', { handledBy });
 
+/**
+ * Staff-only: flag this SOS as a fake / prank report. Doesn't change the
+ * status (so cancelled stays cancelled), just sets marked_false_at +
+ * marked_false_by so the user's trust score reflects it.
+ *
+ * RLS: only allowed when public.is_staff() returns true (Phase 1 policy).
+ */
+export async function markSosFalse(sosId: string, staffId: string): Promise<void> {
+  const { error } = await supabase
+    .from('sos_events')
+    .update({
+      marked_false_at: new Date().toISOString(),
+      marked_false_by: staffId,
+    })
+    .eq('id', sosId);
+  if (error) throw error;
+}
+
+/** Inverse — undo a false mark, e.g. petugas tagged the wrong row by accident. */
+export async function unmarkSosFalse(sosId: string): Promise<void> {
+  const { error } = await supabase
+    .from('sos_events')
+    .update({ marked_false_at: null, marked_false_by: null })
+    .eq('id', sosId);
+  if (error) throw error;
+}
+
+/**
+ * Batched variant of getUserTrustScore — used by the petugas dashboard
+ * to show warning badges next to reporters with prior flagged events.
+ * Avoids N round-trips when rendering the active SOS feed.
+ */
+export async function getTrustScoresForUsers(
+  userIds: string[],
+): Promise<Map<string, UserTrustScore>> {
+  const unique = Array.from(new Set(userIds));
+  if (unique.length === 0) return new Map();
+  const results = await Promise.all(
+    unique.map(async (id) => [id, await getUserTrustScore(id)] as const),
+  );
+  return new Map(results);
+}
+
+/**
+ * Trust signal shown to petugas: how many prior SOS this user has fired
+ * and how many got flagged as false. A "5 total, 3 false" user warrants
+ * harder scrutiny than a first-time reporter.
+ */
+export async function getUserTrustScore(userId: string): Promise<UserTrustScore> {
+  // Two cheap count queries — both indexed by user_id.
+  const [{ count: total, error: e1 }, { count: falseCount, error: e2 }] = await Promise.all([
+    supabase
+      .from('sos_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('sos_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .not('marked_false_at', 'is', null),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  return { totalSos: total ?? 0, markedFalse: falseCount ?? 0 };
+}
+
 // -----------------------------------------------------------------------------
 // Queries
 // -----------------------------------------------------------------------------
@@ -186,6 +258,49 @@ export async function getActiveSosForUser(userId: string): Promise<SosEvent | nu
     .maybeSingle();
   if (error) throw error;
   return data ? rowToEvent(data as unknown as DbSosEventRow) : null;
+}
+
+// Returns the user's most recent SOS regardless of status. Used to apply
+// the post-cancel cooldown — if the user cancelled their last SOS within
+// COOLDOWN_MS, refuse to start a new one to discourage spam / pranks.
+export async function getLastSosForUser(userId: string): Promise<SosEvent | null> {
+  const { data, error } = await supabase
+    .from('sos_events')
+    .select(EVENT_SELECT)
+    .eq('user_id', userId)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToEvent(data as unknown as DbSosEventRow) : null;
+}
+
+// ── Cooldown helper ──────────────────────────────────────────────────
+// 15 minutes between a user-cancelled SOS and a new one. Resolved-by-petugas
+// events are NOT subject to cooldown — those represent legitimate emergencies
+// where blocking the user could be tragic. Only `cancelled` counts (user
+// pressed "Batalkan Darurat" themselves → likely false alarm / spam).
+export const SOS_COOLDOWN_MS = 15 * 60 * 1000;
+
+export type SosCooldown = {
+  active: boolean;
+  remainingMs: number;
+  remainingMinutes: number;
+};
+
+export function computeSosCooldown(last: SosEvent | null): SosCooldown {
+  const inactive: SosCooldown = { active: false, remainingMs: 0, remainingMinutes: 0 };
+  if (!last || last.status !== 'cancelled') return inactive;
+  const terminatedAt = last.cancelledAt ?? last.updatedAt;
+  if (!terminatedAt) return inactive;
+  const elapsed = Date.now() - terminatedAt.getTime();
+  const remaining = SOS_COOLDOWN_MS - elapsed;
+  if (remaining <= 0) return inactive;
+  return {
+    active: true,
+    remainingMs: remaining,
+    remainingMinutes: Math.ceil(remaining / 60_000),
+  };
 }
 
 export async function listActiveSosEvents(): Promise<SosEvent[]> {

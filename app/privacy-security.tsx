@@ -81,8 +81,8 @@ export default function PrivacySecurityScreen() {
       body: t('ps_delete_confirm_msg'),
       primaryText: t('ec_delete'),
       secondaryText: t('ec_cancel'),
-      onPrimary: () => {
-        deleteAllContacts();
+      onPrimary: async () => {
+        await deleteAllContacts();
         addNotification({
           type: 'security',
           title: t('ps_delete_btn'),

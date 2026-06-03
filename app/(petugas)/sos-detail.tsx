@@ -22,16 +22,20 @@ import {
   acknowledgeSosEvent,
   getSosEvent,
   getSosLocations,
+  getUserTrustScore,
+  markSosFalse,
   resolveSosEvent,
   respondToSosEvent,
   subscribeToSosEvent,
   subscribeToSosLocations,
+  unmarkSosFalse,
 } from '../../services/sosService';
 import {
   SOS_STATUS_COLORS,
   SOS_STATUS_LABELS,
   type SosEvent,
   type SosLocation,
+  type UserTrustScore,
 } from '../../types/sos';
 
 // Same palette as navigate.tsx so the two map screens feel consistent.
@@ -58,6 +62,7 @@ export default function SosDetailScreen() {
   const [address, setAddress] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [trust, setTrust] = useState<UserTrustScore | null>(null);
   const mountedRef = useRef(true);
   // Reverse-geocode at most once per ~50m of movement to avoid spamming the API.
   const lastGeocodedRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -88,6 +93,12 @@ export default function SosDetailScreen() {
         setEvent(ev);
         setLocations(locs);
         setLoading(false);
+        // Trust score fetch is best-effort; failure shouldn't block the screen.
+        if (ev) {
+          getUserTrustScore(ev.userId)
+            .then(t => { if (mountedRef.current) setTrust(t); })
+            .catch(err => console.warn('[sos-detail] trust score failed', err));
+        }
       } catch (err) {
         console.warn('[sos-detail] initial load failed', err);
         if (mountedRef.current) setLoading(false);
@@ -218,6 +229,40 @@ export default function SosDetailScreen() {
     );
   };
 
+  // ── Moderation ────────────────────────────────────────────────────
+  const handleToggleFalse = () => {
+    if (!event || !user) return;
+    const isAlreadyFalse = !!event.markedFalseAt;
+    dialog.show({
+      type: 'warning',
+      title: isAlreadyFalse ? 'Batalkan Penandaan?' : 'Tandai Sebagai Palsu?',
+      body: isAlreadyFalse
+        ? 'Penandaan sebagai laporan palsu akan dihapus dari trust score pengguna ini.'
+        : 'Tindakan ini akan menurunkan trust score pelapor dan terlihat untuk petugas lain. Hanya gunakan jika laporan terbukti tidak benar.',
+      primaryText: isAlreadyFalse ? 'Batalkan' : 'Tandai Palsu',
+      secondaryText: 'Batal',
+      onPrimary: async () => {
+        setBusy(true);
+        try {
+          if (isAlreadyFalse) {
+            await unmarkSosFalse(event.id);
+          } else {
+            await markSosFalse(event.id, user.id);
+          }
+          // Refresh trust score after flag change.
+          try {
+            const t = await getUserTrustScore(event.userId);
+            if (mountedRef.current) setTrust(t);
+          } catch {}
+        } catch (err: any) {
+          dialog.show({ type: 'error', title: 'Gagal', body: err?.message ?? 'Coba lagi.', primaryText: 'OK' });
+        } finally {
+          if (mountedRef.current) setBusy(false);
+        }
+      },
+    });
+  };
+
   const handleOpenMaps = () => {
     if (event?.currentLat == null || event?.currentLng == null) return;
     const lat = event.currentLat;
@@ -334,6 +379,7 @@ export default function SosDetailScreen() {
             <Text style={styles.reporterPhone} numberOfLines={1}>
               {event.reporterPhone ?? 'Nomor tidak tersedia'}
             </Text>
+            {trust && <TrustChip trust={trust} />}
           </View>
           <TouchableOpacity
             style={styles.callIconBtn}
@@ -429,9 +475,72 @@ export default function SosDetailScreen() {
             </View>
           )}
         </View>
+
+        {/* Moderation — only meaningful after the SOS is closed. Hidden while
+            the event is still in progress so petugas focuses on response first. */}
+        {(event.status === 'cancelled' || event.status === 'resolved') && (
+          <TouchableOpacity
+            style={[
+              styles.moderationBtn,
+              event.markedFalseAt && styles.moderationBtnActive,
+              busy && { opacity: 0.6 },
+            ]}
+            onPress={handleToggleFalse}
+            activeOpacity={0.85}
+            disabled={busy}
+          >
+            <Ionicons
+              name={event.markedFalseAt ? 'flag' : 'flag-outline'}
+              size={15}
+              color={event.markedFalseAt ? '#fff' : RED}
+            />
+            <Text
+              style={[
+                styles.moderationBtnText,
+                event.markedFalseAt && { color: '#fff' },
+              ]}
+            >
+              {event.markedFalseAt ? 'Ditandai Sebagai Palsu' : 'Tandai Sebagai Palsu'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <dialog.Dialog />
+    </View>
+  );
+}
+
+// Trust signal chip — at-a-glance signal for the petugas before they call.
+// Color codes:
+//   gray  = brand-new reporter (no prior SOS history)
+//   green = clean track record (≥1 prior SOS, 0 marked false)
+//   red   = has been flagged for false reports before
+function TrustChip({ trust }: { trust: UserTrustScore }) {
+  if (trust.totalSos <= 1) {
+    return (
+      <View style={[styles.trustChip, styles.trustChipNew]}>
+        <Ionicons name="time-outline" size={11} color="#6B7280" />
+        <Text style={styles.trustChipText}>Akun baru</Text>
+      </View>
+    );
+  }
+  if (trust.markedFalse === 0) {
+    return (
+      <View style={[styles.trustChip, styles.trustChipClean]}>
+        <Ionicons name="shield-checkmark" size={11} color="#15803D" />
+        <Text style={[styles.trustChipText, { color: '#15803D' }]}>
+          {trust.totalSos} riwayat SOS · bersih
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.trustChip, styles.trustChipFlagged]}>
+      <Ionicons name="warning" size={11} color="#B91C1C" />
+      <Text style={[styles.trustChipText, { color: '#B91C1C' }]}>
+        {trust.markedFalse} dari {trust.totalSos} SOS ditandai palsu
+      </Text>
     </View>
   );
 }
@@ -561,4 +670,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   btnSecondaryText: { color: NAVY, fontSize: 13, fontWeight: '700' },
+
+  // ── Trust chip (under reporter name) ──
+  trustChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 5,
+  },
+  trustChipNew:     { backgroundColor: '#F3F4F6' },
+  trustChipClean:   { backgroundColor: '#DCFCE7' },
+  trustChipFlagged: { backgroundColor: '#FEE2E2' },
+  trustChipText: { fontSize: 10.5, fontWeight: '700', color: '#6B7280', letterSpacing: 0.2 },
+
+  // ── Moderation button (Tandai Palsu) ──
+  moderationBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1.5, borderColor: RED, backgroundColor: '#FFF',
+  },
+  moderationBtnActive: { backgroundColor: RED, borderColor: RED },
+  moderationBtnText: { color: RED, fontSize: 13, fontWeight: '700' },
 });

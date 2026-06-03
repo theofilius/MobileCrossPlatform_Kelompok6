@@ -28,6 +28,7 @@ export default function SignUpScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -38,7 +39,8 @@ export default function SignUpScreen() {
     email.trim().length > 0 &&
     phone.trim().length > 0 &&
     password.length > 0 &&
-    confirmPassword.length > 0;
+    confirmPassword.length > 0 &&
+    acceptedTerms;
 
   const handleSubmit = async () => {
     setErrorMessage(null);
@@ -167,6 +169,24 @@ export default function SignUpScreen() {
                 </View>
               )}
 
+              {/* UU ITE disclaimer — required to enable submit. Acts as both
+                  legal cover and psychological deterrent against prank reports. */}
+              <TouchableOpacity
+                style={styles.termsRow}
+                onPress={() => setAcceptedTerms(v => !v)}
+                activeOpacity={0.8}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: acceptedTerms }}
+              >
+                <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                  {acceptedTerms && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                </View>
+                <Text style={styles.termsText}>
+                  Saya memahami bahwa melakukan laporan darurat palsu dapat dikenakan sanksi sesuai{' '}
+                  <Text style={styles.termsHighlight}>UU ITE Pasal 14</Text> (penjara maksimal 10 tahun dan/atau denda 50 juta rupiah).
+                </Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.nextButton, !canSubmit && styles.nextButtonDisabled]}
                 onPress={handleSubmit}
@@ -255,6 +275,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   errorText: { flex: 1, fontSize: 13, color: '#991B1B', lineHeight: 18 },
+  termsRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    paddingVertical: 4, marginBottom: 10,
+  },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: '#9CA3AF',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginTop: 1,
+  },
+  checkboxChecked: { backgroundColor: '#003B71', borderColor: '#003B71' },
+  termsText: { flex: 1, fontSize: 11.5, color: '#4B5563', lineHeight: 16 },
+  termsHighlight: { color: '#DC2626', fontWeight: '700' },
   nextButton: {
     backgroundColor: '#003B71',
     borderRadius: 10,

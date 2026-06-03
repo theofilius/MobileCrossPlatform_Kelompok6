@@ -10,13 +10,14 @@ import { getPrimaryContact } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
 import {
   cancelSosEvent,
+  computeSosCooldown,
   createSosEvent,
-  getActiveSosForUser,
+  getLastSosForUser,
   getSosEvent,
   recordSosLocation,
   subscribeToSosEvent,
 } from '../services/sosService';
-import { type SosEvent, type SosStatus } from '../types/sos';
+import { isActiveSos, type SosEvent, type SosStatus } from '../types/sos';
 import { useDialog } from '../components/aegis/Dialog';
 
 const EMERGENCY_FALLBACK = '112';
@@ -165,13 +166,32 @@ export default function EmergencyActiveScreen() {
         console.warn('[sos] initial location failed', err);
       }
 
-      // 2. Resume an existing open SOS for this user, or create a new one.
-      //    Schema enforces "max 1 open SOS per user" via partial unique index,
-      //    so this prevents duplicate events if the user backs out and re-enters.
+      // 2. Resume / cooldown / create-new.
+      //    - If user has an OPEN SOS → resume it (handles re-entry after backing out).
+      //    - Else if last SOS was cancelled within 15 min → block with cooldown dialog.
+      //    - Else → create a new SOS event.
+      //    Schema's partial unique index ensures we can't end up with 2 open SOS
+      //    per user even under race conditions.
       let event: SosEvent | null = null;
       try {
-        event = await getActiveSosForUser(user.id);
-        if (!event) {
+        const last = await getLastSosForUser(user.id);
+        if (last && isActiveSos(last.status)) {
+          event = last;
+        } else {
+          const cooldown = computeSosCooldown(last);
+          if (cooldown.active) {
+            if (!mountedRef.current) return;
+            dialog.show({
+              type: 'warning',
+              title: 'Tunggu Beberapa Menit',
+              body:
+                `Anda baru saja membatalkan SOS. Tunggu ${cooldown.remainingMinutes} menit ` +
+                `sebelum dapat memicu SOS lagi. Untuk darurat mendesak, telepon 112 langsung.`,
+              primaryText: 'Mengerti',
+              onPrimary: () => router.back(),
+            });
+            return; // skip event creation, subscription, and watcher setup
+          }
           event = await createSosEvent({
             userId: user.id,
             latitude: initial?.latitude ?? null,

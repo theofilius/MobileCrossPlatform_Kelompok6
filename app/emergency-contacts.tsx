@@ -82,7 +82,7 @@ export default function EmergencyContactsScreen() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       dialog.show({ type: 'error', title: '!', body: t('ec_val_name'), primaryText: 'OK' });
       return;
@@ -93,25 +93,24 @@ export default function EmergencyContactsScreen() {
       return;
     }
 
+    const payload = {
+      name: name.trim(),
+      relationship: relationship.trim() || relationshipOptions[0],
+      phone: cleaned,
+      priority,
+    };
+
     if (editing) {
-      updateContact(editing.id, {
-        name: name.trim(),
-        relationship: relationship.trim() || relationshipOptions[0],
-        phone: cleaned,
-        priority,
-      });
+      await updateContact(editing.id, payload);
     } else {
-      addContact({
-        name: name.trim(),
-        relationship: relationship.trim() || relationshipOptions[0],
-        phone: cleaned,
-        priority,
-      });
-      addNotification({
-        type: 'contact',
-        title: t('ec_add'),
-        body: name.trim(),
-      });
+      const created = await addContact(payload);
+      if (created) {
+        addNotification({
+          type: 'contact',
+          title: t('ec_add'),
+          body: payload.name,
+        });
+      }
     }
     setModalOpen(false);
   };
@@ -123,8 +122,8 @@ export default function EmergencyContactsScreen() {
       body: t('ec_delete_confirm_msg'),
       primaryText: t('ec_delete'),
       secondaryText: t('ec_cancel'),
-      onPrimary: () => {
-        deleteContact(c.id);
+      onPrimary: async () => {
+        await deleteContact(c.id);
         addNotification({
           type: 'contact',
           title: t('ec_delete'),

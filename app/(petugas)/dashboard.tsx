@@ -20,6 +20,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useReports } from '@/context/ReportsContext';
 import { useDialog } from '../../components/aegis/Dialog';
 import {
+  getTrustScoresForUsers,
   listActiveSosEvents,
   subscribeToSosEvents,
 } from '../../services/sosService';
@@ -27,6 +28,7 @@ import {
   SOS_STATUS_COLORS,
   SOS_STATUS_SHORT,
   type SosEvent,
+  type UserTrustScore,
 } from '../../types/sos';
 
 // Figma palette
@@ -84,14 +86,17 @@ function relativeTime(d: Date): string {
 
 function ActiveSosCard({
   event,
+  trust,
   onDetail,
   onCall,
 }: {
   event: SosEvent;
+  trust: UserTrustScore | undefined;
   onDetail: (e: SosEvent) => void;
   onCall: (e: SosEvent) => void;
 }) {
   const pillColor = SOS_STATUS_COLORS[event.status];
+  const flagged = trust && trust.markedFalse > 0;
   return (
     <TouchableOpacity activeOpacity={0.94} onPress={() => onDetail(event)} style={styles.sosCard}>
       <View style={styles.sosCardAccent} />
@@ -113,6 +118,14 @@ function ActiveSosCard({
             <Text style={styles.sosCardMeta} numberOfLines={1}>
               {event.reporterPhone ?? 'Nomor tidak tersedia'} · {relativeTime(event.startedAt)}
             </Text>
+            {flagged && (
+              <View style={styles.sosWarnChip}>
+                <Ionicons name="warning" size={10} color="#B91C1C" />
+                <Text style={styles.sosWarnChipText}>
+                  {trust.markedFalse} dari {trust.totalSos} SOS sebelumnya ditandai palsu
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -237,6 +250,7 @@ export default function DashboardScreen() {
   const dialog = useDialog();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [activeSos, setActiveSos] = useState<SosEvent[]>([]);
+  const [trustMap, setTrustMap] = useState<Map<string, UserTrustScore>>(new Map());
 
   // SOS feed: initial fetch + realtime subscription. Re-fetch full list on
   // any change (cheap: typically < 10 open SOS at a time) so we don't have
@@ -258,6 +272,25 @@ export default function DashboardScreen() {
       unsub();
     };
   }, []);
+
+  // Trust score batch lookup whenever the active SOS list changes. Cheap
+  // because the result is just count() per user; results memoized in state.
+  useEffect(() => {
+    if (activeSos.length === 0) {
+      setTrustMap(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const map = await getTrustScoresForUsers(activeSos.map(e => e.userId));
+        if (!cancelled) setTrustMap(map);
+      } catch (err) {
+        console.warn('[sos] trust score batch failed', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeSos]);
 
   const openSosDetail = (event: SosEvent) => {
     router.push({
@@ -368,6 +401,7 @@ export default function DashboardScreen() {
                   <ActiveSosCard
                     key={event.id}
                     event={event}
+                    trust={trustMap.get(event.userId)}
                     onDetail={openSosDetail}
                     onCall={callReporter}
                   />
@@ -617,6 +651,15 @@ const styles = StyleSheet.create({
   sosStatusPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   sosStatusPillText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   sosCardMeta: { fontSize: 12, color: MUTED, fontWeight: '600' },
+  sosWarnChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  sosWarnChipText: { fontSize: 10.5, fontWeight: '700', color: '#B91C1C' },
   sosCardLocation: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: '#FEF2F2',

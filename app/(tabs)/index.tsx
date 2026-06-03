@@ -255,6 +255,11 @@ export default function HomeScreen() {
             ]}>
               {isHolding ? t('home_release_hint') : t('home_hold_hint')}
             </Text>
+            {/* UU ITE disclaimer below SOS — visible deterrent against prank
+                reports, no friction for genuine emergencies. */}
+            <Text style={styles.legalNotice}>
+              Laporan palsu dapat dikenakan sanksi UU ITE Pasal 14
+            </Text>
           </View>
 
           {/* ── Learn More ────────────────────────────── */}
@@ -380,8 +385,12 @@ const styles = StyleSheet.create({
   sosBtnHolding: { backgroundColor: '#DC2626', borderColor: '#FF4444', shadowColor: '#DC2626' },
   holdCountText: { fontSize: 42, fontWeight: '900', color: '#FFFFFF' },
 
-  sosHelper: { fontSize: 12, color: '#6B7280', textAlign: 'center', fontWeight: '500', marginBottom: 16 },
+  sosHelper: { fontSize: 12, color: '#6B7280', textAlign: 'center', fontWeight: '500', marginBottom: 6 },
   sosHelperHolding: { color: '#DC2626', fontWeight: '600' },
+  legalNotice: {
+    fontSize: 10, color: '#9CA3AF', textAlign: 'center', fontWeight: '500',
+    fontStyle: 'italic', marginBottom: 16, paddingHorizontal: 8,
+  },
 
   // ── Learn More ────────────────────────────────────────
   learnSection: {},

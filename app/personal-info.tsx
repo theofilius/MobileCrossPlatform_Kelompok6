@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useCamera } from '../hooks/useCamera';
+import { uploadAvatar } from '../services/mediaService';
 import { useDialog } from '../components/aegis/Dialog';
 
 export default function PersonalInfoScreen() {
@@ -20,8 +21,35 @@ export default function PersonalInfoScreen() {
   const [phone, setPhone] = useState(user?.phone || '');
   const [email, setEmail] = useState(user?.email || '');
   const [photoUri, setPhotoUri] = useState<string | undefined>(user?.photoUri);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Pick → optimistic local preview → upload to Storage → persist public URL.
+  // On error: revert to the previous photo and let the user retry.
+  const handlePickedPhoto = async (localUri: string) => {
+    if (!user) return;
+    const previous = photoUri;
+    setPhotoUri(localUri);
+    setUploadingPhoto(true);
+    try {
+      const publicUrl = await uploadAvatar(localUri, user.id);
+      setPhotoUri(publicUrl);
+      await updateUser({ photoUri: publicUrl });
+    } catch (err: any) {
+      console.warn('[avatar] upload failed', err?.message ?? err);
+      setPhotoUri(previous);
+      dialog.show({
+        type: 'error',
+        title: 'Gagal',
+        body: 'Tidak dapat mengunggah foto. Cek koneksi lalu coba lagi.',
+        primaryText: 'OK',
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const handlePickPhoto = () => {
+    if (uploadingPhoto) return;
     dialog.show({
       type: 'info',
       title: t('pi_change_photo'),
@@ -30,17 +58,11 @@ export default function PersonalInfoScreen() {
       secondaryText: t('pi_photo_gallery'),
       onPrimary: async () => {
         const uri = await capturePhoto();
-        if (uri) {
-          setPhotoUri(uri);
-          updateUser({ photoUri: uri });
-        }
+        if (uri) handlePickedPhoto(uri);
       },
       onSecondary: async () => {
         const uri = await pickFromGallery();
-        if (uri) {
-          setPhotoUri(uri);
-          updateUser({ photoUri: uri });
-        }
+        if (uri) handlePickedPhoto(uri);
       }
     });
   };
@@ -55,7 +77,18 @@ export default function PersonalInfoScreen() {
       });
       return;
     }
-    await updateUser({ name: name.trim(), phone: phone.trim(), email: email.trim(), photoUri });
+    if (uploadingPhoto) {
+      dialog.show({
+        type: 'info',
+        title: 'Tunggu sebentar',
+        body: 'Foto profil sedang diunggah. Coba lagi setelah selesai.',
+        primaryText: 'OK',
+      });
+      return;
+    }
+    // Don't overwrite photo_uri with a local file:// URI — handlePickedPhoto
+    // already persisted the public Storage URL. Only patch the text fields.
+    await updateUser({ name: name.trim(), phone: phone.trim(), email: email.trim() });
     dialog.show({
       type: 'success',
       title: t('pi_success_title'),
@@ -85,18 +118,34 @@ export default function PersonalInfoScreen() {
 
             {/* Avatar */}
             <View style={styles.avatarSection}>
-              <TouchableOpacity style={styles.avatarContainer} onPress={handlePickPhoto} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.avatarContainer}
+                onPress={handlePickPhoto}
+                activeOpacity={0.8}
+                disabled={uploadingPhoto}
+              >
                 {photoUri ? (
                   <Image source={{ uri: photoUri }} style={styles.avatarImage} />
                 ) : (
                   <Ionicons name="person" size={50} color="#003B71" />
                 )}
+                {uploadingPhoto && (
+                  <View style={styles.avatarUploadOverlay}>
+                    <ActivityIndicator color="#FFFFFF" />
+                  </View>
+                )}
                 <View style={styles.editBadge}>
                   <Ionicons name="camera" size={14} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.changePhotoButton} onPress={handlePickPhoto}>
-                <Text style={styles.changePhotoText}>{t('pi_change_photo')}</Text>
+              <TouchableOpacity
+                style={[styles.changePhotoButton, uploadingPhoto && { opacity: 0.6 }]}
+                onPress={handlePickPhoto}
+                disabled={uploadingPhoto}
+              >
+                <Text style={styles.changePhotoText}>
+                  {uploadingPhoto ? 'Mengunggah...' : t('pi_change_photo')}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -197,6 +246,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 50,
+  },
+  avatarUploadOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center', justifyContent: 'center',
   },
   editBadge: {
     position: 'absolute',

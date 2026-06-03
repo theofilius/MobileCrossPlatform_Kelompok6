@@ -22,11 +22,22 @@ export type SosEvent = {
   cancelledAt: Date | null;
   handledBy: string | null;
   note: string | null;
+  // Moderation flag — petugas can mark a clearly-fake SOS for trust scoring.
+  // Independent of status (an SOS can be 'cancelled' AND marked false).
+  markedFalseAt: Date | null;
+  markedFalseBy: string | null;
   createdAt: Date;
   updatedAt: Date;
   // Joined reporter profile (populated by sosService SELECT)
   reporterName?: string;
   reporterPhone?: string;
+};
+
+// Per-user moderation snapshot — shown in petugas dashboard / SOS detail
+// so they know if this reporter has a track record of fake reports.
+export type UserTrustScore = {
+  totalSos: number;
+  markedFalse: number;
 };
 
 export type SosLocation = {
