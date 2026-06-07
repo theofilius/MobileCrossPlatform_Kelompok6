@@ -142,7 +142,7 @@ export default function HomeScreen() {
             <View style={styles.headerLeft}>
               <View style={styles.logoBox}>
                 <Image
-                  source={require('../../assets/images/aegis-logo.png')}
+                  source={require('../../assets/images/aegislogo-new.webp')}
                   style={styles.logoImg}
                   resizeMode="cover"
                 />

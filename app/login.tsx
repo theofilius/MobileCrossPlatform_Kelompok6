@@ -1,3 +1,6 @@
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { validateEmail } from '@/utils/auth';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
@@ -15,9 +18,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthContext } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
-import { validateEmail } from '@/utils/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -79,7 +79,7 @@ export default function LoginScreen() {
 
             <View style={styles.logoWrap}>
               <Image
-                source={require('../assets/images/aegis-logo.png')}
+                source={require('../assets/images/aegislogo-nobg.webp')}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -112,6 +112,15 @@ export default function LoginScreen() {
                 onChangeText={(v) => { setPassword(v); setErrorMessage(null); }}
                 editable={!submitting && !googleLoading}
               />
+
+              <TouchableOpacity 
+                style={{ alignSelf: 'flex-end', marginTop: 8, marginBottom: 16 }}
+                onPress={() => router.push('/forgot-password')}
+              >
+                <Text style={{ color: '#003B71', fontSize: 14, fontWeight: '600' }}>
+                  Lupa Kata Sandi?
+                </Text>
+              </TouchableOpacity>
 
               {errorMessage && (
                 <View style={styles.errorBox}>

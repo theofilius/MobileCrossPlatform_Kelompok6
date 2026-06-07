@@ -1,7 +1,11 @@
+import { AuthContext } from '@/context/AuthContext';
+import { useReports } from '@/context/ReportsContext';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Linking,
@@ -10,14 +14,9 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AuthContext } from '@/context/AuthContext';
-import { useReports } from '@/context/ReportsContext';
 import { useDialog } from '../../components/aegis/Dialog';
 import {
   getTrustScoresForUsers,
@@ -369,7 +368,7 @@ export default function DashboardScreen() {
             <View style={styles.topCard}>
               <View style={styles.logoWrap}>
                 <Image
-                  source={require('../../assets/images/aegis-logo.png')}
+                  source={require('../../assets/images/aegislogo-new.webp')}
                   style={styles.logoImg}
                   resizeMode="cover"
                 />

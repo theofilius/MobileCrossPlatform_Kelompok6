@@ -1,14 +1,14 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useContext, useState } from 'react';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDialog } from '../components/aegis/Dialog';
 import { useCamera } from '../hooks/useCamera';
 import { uploadAvatar } from '../services/mediaService';
-import { useDialog } from '../components/aegis/Dialog';
 
 export default function PersonalInfoScreen() {
   const router = useRouter();
@@ -118,26 +118,39 @@ export default function PersonalInfoScreen() {
 
             {/* Avatar */}
             <View style={styles.avatarSection}>
-              <TouchableOpacity
-                style={styles.avatarContainer}
-                onPress={handlePickPhoto}
-                activeOpacity={0.8}
-                disabled={uploadingPhoto}
-              >
-                {photoUri ? (
-                  <Image source={{ uri: photoUri }} style={styles.avatarImage} />
-                ) : (
-                  <Ionicons name="person" size={50} color="#003B71" />
-                )}
-                {uploadingPhoto && (
-                  <View style={styles.avatarUploadOverlay}>
-                    <ActivityIndicator color="#FFFFFF" />
-                  </View>
-                )}
-                <View style={styles.editBadge}>
-                  <Ionicons name="camera" size={14} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
+              {/* ✅ BUNGKUS BARU: Wrapper untuk Absolute Positioning Kamera */}
+              <View style={{ position: 'relative', marginBottom: 16 }}>
+                
+                <TouchableOpacity
+                  style={styles.avatarContainer}
+                  onPress={handlePickPhoto}
+                  activeOpacity={0.8}
+                  disabled={uploadingPhoto}
+                >
+                  {photoUri ? (
+                    <Image source={{ uri: photoUri }} style={styles.avatarImage} />
+                  ) : (
+                    <Ionicons name="person" size={50} color="#003B71" />
+                  )}
+                  {uploadingPhoto && (
+                    <View style={styles.avatarUploadOverlay}>
+                      <ActivityIndicator color="#FFFFFF" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* ✅ Ikon Kamera dikeluarin dari dalam AvatarContainer */}
+                <TouchableOpacity 
+                  style={styles.cameraBadge} // Ganti nama style
+                  onPress={handlePickPhoto}
+                  disabled={uploadingPhoto}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+
+              </View>
+
               <TouchableOpacity
                 style={[styles.changePhotoButton, uploadingPhoto && { opacity: 0.6 }]}
                 onPress={handlePickPhoto}
@@ -239,8 +252,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
-    marginBottom: 12,
-    overflow: 'hidden',
+    overflow: 'hidden', // INI PENTING: Harus dipertahankan agar foto tidak kotak
   },
   avatarImage: {
     width: '100%',
@@ -254,18 +266,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center', justifyContent: 'center',
   },
-  editBadge: {
+  
+  // ✅ Ganti nama dan style editBadge menjadi cameraBadge
+  cameraBadge: {
     position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    bottom: 0,
+    right: -4,
     backgroundColor: '#003B71',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   changePhotoButton: {
     paddingHorizontal: 16,

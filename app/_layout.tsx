@@ -13,11 +13,10 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import { ReportsProvider } from '@/context/ReportsContext';
 import { SocketProvider } from '@/context/SocketContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-// ✅ Import SOSProvider dari folder context yang sudah kamu pindahkan
 import { SOSProvider } from '../context/SOSContext';
 
 // Public routes — accessible without a session
-const PUBLIC_ROUTES = new Set(['index', 'login', 'signup', 'otp', 'loading']);
+const PUBLIC_ROUTES = new Set(['index', 'login', 'signup', 'otp', 'loading', 'forgot-password', 'reset-password']);
 // Routes restricted to role=petugas|admin. role=user must be redirected out.
 const PETUGAS_GROUP = '(petugas)';
 
@@ -97,7 +96,7 @@ function BrandedSplash() {
       <View style={styles.splashInner}>
         {!imageFailed ? (
           <Image
-            source={require('../assets/images/aegis-logo.png')}
+            source={require('../assets/images/aegislogo-new.webp')}
             style={styles.splashLogo}
             resizeMode="contain"
             onError={() => setImageFailed(true)}
@@ -136,6 +135,8 @@ export default function RootLayout() {
                       <Stack.Screen name="login" options={{ headerShown: false }} />
                       <Stack.Screen name="signup" options={{ headerShown: false }} />
                       <Stack.Screen name="otp" options={{ headerShown: false }} />
+                      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+                      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
                       <Stack.Screen name="location-permission" options={{ headerShown: false }} />
                       <Stack.Screen name="personal-info" options={{ headerShown: false }} />
                       <Stack.Screen name="emergency-active" options={{ headerShown: false, presentation: 'fullScreenModal' }} />

@@ -1,3 +1,4 @@
+import { useLanguage } from '@/context/LanguageContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -16,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage } from '@/context/LanguageContext';
+import { useDialog } from '../components/aegis/Dialog';
 import {
   ContactPriority,
   EmergencyContact,
@@ -27,7 +28,6 @@ import {
   updateContact,
 } from '../services/contactsService';
 import { addNotification } from '../services/notificationsService';
-import { useDialog } from '../components/aegis/Dialog';
 
 const PRIORITY_COLOR: Record<ContactPriority, string> = {
   primary: '#DC2626',
@@ -145,6 +145,9 @@ export default function EmergencyContactsScreen() {
     );
   };
 
+  // ✅ LOGIC KUNCI: Cek apakah ada kontak
+  const hasContacts = contacts.length > 0;
+
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -155,9 +158,15 @@ export default function EmergencyContactsScreen() {
             <Ionicons name="chevron-back" size={22} color="#003B71" />
           </TouchableOpacity>
           <Text style={styles.title}>{t('ec_title')}</Text>
-          <TouchableOpacity style={styles.addBtnTop} onPress={openAdd}>
-            <Ionicons name="add" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
+          
+          {/* ✅ Terapkan Conditional Rendering di Sini */}
+          {hasContacts ? (
+            <TouchableOpacity style={styles.addBtnTop} onPress={openAdd}>
+              <Ionicons name="add" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : (
+             <View style={styles.addBtnTopPlaceholder} /> // Placeholder agar title tetap di tengah
+          )}
         </View>
 
         <FlatList
@@ -331,6 +340,9 @@ const styles = StyleSheet.create({
   addBtnTop: {
     width: 36, height: 36, borderRadius: 10, backgroundColor: '#003B71',
     justifyContent: 'center', alignItems: 'center',
+  },
+   addBtnTopPlaceholder: { // Placeholder agar flex title tetap seimbang
+    width: 36, height: 36,
   },
 
   list: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },

@@ -1,11 +1,11 @@
-import React, { useContext } from 'react';
-import { Alert, Image, View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AuthContext } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { AuthContext } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
+import React, { useContext } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDialog } from '../../components/aegis/Dialog';
 
 export default function ProfileScreen() {
@@ -24,7 +24,7 @@ export default function ProfileScreen() {
     dialog.show({
       type: 'info',
       title: t('lang_pick_title'),
-      primaryText: 'Bahasa Indonesia' + (language === 'id' ? '  ✓' : ''),
+      primaryText: 'Indonesia' + (language === 'id' ? '  ✓' : ''),
       secondaryText: 'English' + (language === 'en' ? '  ✓' : ''),
       onPrimary: () => setLanguage('id'),
       onSecondary: () => setLanguage('en')
@@ -38,17 +38,30 @@ export default function ProfileScreen() {
           
           {/* Header Profile Section */}
           <View style={styles.headerSection}>
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              onPress={() => router.push('/personal-info' as any)}
-              activeOpacity={0.85}
-            >
-              {user?.photoUri ? (
-                <Image source={{ uri: user.photoUri }} style={styles.avatarImage} />
-              ) : (
-                <Ionicons name="person" size={50} color="#003B71" />
-              )}
-            </TouchableOpacity>
+            {/* Wrapper tambahan untuk efek Absolute Positioning Kamera */}
+            <View style={{ position: 'relative', marginBottom: 16 }}>
+              <TouchableOpacity
+                style={[styles.avatarContainer, { marginBottom: 0 }]} // marginBottom dipindah ke wrapper
+                onPress={() => router.push('/personal-info' as any)}
+                activeOpacity={0.85}
+              >
+                {user?.photoUri ? (
+                  <Image source={{ uri: user.photoUri }} style={styles.avatarImage} />
+                ) : (
+                  <Ionicons name="person" size={50} color="#003B71" />
+                )}
+              </TouchableOpacity>
+
+              {/* ✅ FIX KAMERA MODERN (Floating) */}
+              <TouchableOpacity 
+                style={styles.cameraBadge}
+                onPress={() => router.push('/personal-info' as any)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="camera" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
             <Text style={styles.userPhone}>{user?.phone || '-'}</Text>
           </View>
@@ -164,6 +177,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 50,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: -4,
+    backgroundColor: '#003B71',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   userName: {
     fontSize: 24,

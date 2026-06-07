@@ -27,6 +27,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: false,
     // PKCE is mandatory for OAuth flows in native apps — the server returns
     // a one-time `code` we exchange via exchangeCodeForSession.
-    flowType: 'pkce',
+    flowType: 'implicit',
   },
 });
