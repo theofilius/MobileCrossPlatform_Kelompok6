@@ -295,7 +295,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async (): Promise<OAuthResult> => oauthSignInWithGoogle();
 
   const signOut = async (): Promise<void> => {
-    await supabase.auth.signOut();
+    // Always force the local session to null, even if the server call fails
+    // (network down, token already invalid, flowType mismatch, etc.).
+    // Without this, a silent server error would leave the user "logged in"
+    // locally because onAuthStateChange wouldn't fire.
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn('[auth] signOut server error:', error.message);
+      }
+    } catch (err: any) {
+      console.warn('[auth] signOut threw:', err?.message ?? err);
+    } finally {
+      // Defensive: clear local state + tear down per-user services regardless
+      // of whether the server confirmed the logout. AuthGate will route to
+      // /login the moment user becomes null.
+      setSession(null);
+      setUser(null);
+      teardownContacts();
+      teardownNotifications();
+    }
   };
 
   const updateUser = async (data: Partial<Omit<User, 'id'>>): Promise<void> => {

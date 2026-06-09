@@ -27,6 +27,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: false,
     // PKCE is mandatory for OAuth flows in native apps — the server returns
     // a one-time `code` we exchange via exchangeCodeForSession.
-    flowType: 'implicit',
+    // Do NOT change this to 'implicit' — services/oauthService.ts depends on
+    // PKCE (parses `code` from redirect and calls exchangeCodeForSession).
+    // Switching to implicit returns tokens in the URL hash instead, which
+    // also breaks session signOut and causes "tiba-tiba login" + "gabisa
+    // keluar" issues.
+    flowType: 'pkce',
   },
 });

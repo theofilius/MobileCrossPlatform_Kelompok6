@@ -110,7 +110,19 @@ export function ReportsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Re-run whenever the auth user changes. ReportsProvider mounts above
+  // AuthGate (so it boots before the session hydrates) — without this
+  // dependency the very first fetch hits RLS empty-handed and the list
+  // stays empty until someone INSERTs a row. Clearing rows on logout
+  // also prevents one user's data leaking into the next session.
   useEffect(() => {
+    if (!user) {
+      setReports([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setLoading(true);
     fetchOnce();
     const unsub = subscribeToReports(() => {
       // On any change (insert / update / delete) just refetch — small list,
@@ -118,7 +130,7 @@ export function ReportsProvider({ children }: { children: React.ReactNode }) {
       fetchOnce();
     });
     return unsub;
-  }, [fetchOnce]);
+  }, [user?.id, fetchOnce]);
 
   const acceptReport = useCallback(async (id: string) => {
     // Assign the report to the petugas/admin who accepts it so the profile
