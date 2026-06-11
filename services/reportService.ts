@@ -28,11 +28,24 @@ export type Report = {
   status: ReportStatus;
   priority: ReportPriority;
   assignedTo: string | null;
+  // Moderation flag — petugas can mark a clearly-fake report for trust
+  // scoring. Independent of status; a report can be 'resolved' AND marked
+  // false (e.g. petugas arrived, found nothing, then flagged).
+  markedFalseAt: Date | null;
+  markedFalseBy: string | null;
   createdAt: Date;
   updatedAt: Date;
   // Reporter profile (joined; not always populated)
   reporterName?: string;
   reporterPhone?: string;
+};
+
+// Per-user moderation snapshot for category reports — mirrors the SOS
+// UserTrustScore type. Shown to petugas in the report card and detail
+// screen so they can see if a reporter has a track record of fake reports.
+export type ReporterTrustScore = {
+  totalReports: number;
+  markedFalse: number;
 };
 
 export const EMERGENCY_LABELS: Record<EmergencyType, string> = {
@@ -92,6 +105,8 @@ type DbReportRow = {
   status: ReportStatus;
   priority: ReportPriority;
   assigned_to: string | null;
+  marked_false_at: string | null;
+  marked_false_by: string | null;
   created_at: string;
   updated_at: string;
   // PostgREST may return embed as object OR array depending on join shape.
@@ -119,6 +134,7 @@ function sanitizeUrl(url: string | null): string | null {
 const SELECT = `
   id, user_id, type, description, latitude, longitude, address,
   photo_url, audio_url, status, priority, assigned_to,
+  marked_false_at, marked_false_by,
   created_at, updated_at,
   profiles:profiles!reports_user_id_profiles_fk ( name, phone )
 `;
@@ -138,6 +154,8 @@ function rowToReport(row: DbReportRow): Report {
     status: row.status,
     priority: row.priority ?? 'medium',
     assignedTo: row.assigned_to,
+    markedFalseAt: row.marked_false_at ? new Date(row.marked_false_at) : null,
+    markedFalseBy: row.marked_false_by,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at ?? row.created_at),
     reporterName: profile?.name ?? undefined,
@@ -223,6 +241,59 @@ export async function updateReportStatus(
     .eq('id', id);
 
   if (error) throw error;
+}
+
+/**
+ * Staff-only: flag this category report as fake/prank.
+ */
+export async function markReportFalse(reportId: string, staffId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .update({
+      marked_false_at: new Date().toISOString(),
+      marked_false_by: staffId,
+    })
+    .eq('id', reportId);
+  if (error) throw error;
+}
+
+/** Undo a false mark. */
+export async function unmarkReportFalse(reportId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .update({ marked_false_at: null, marked_false_by: null })
+    .eq('id', reportId);
+  if (error) throw error;
+}
+
+/** Fetch trust score for a specific reporter. */
+export async function getReporterTrustScore(userId: string): Promise<ReporterTrustScore> {
+  const [{ count: total, error: e1 }, { count: falseCount, error: e2 }] = await Promise.all([
+    supabase
+      .from('reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .not('marked_false_at', 'is', null),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  return { totalReports: total ?? 0, markedFalse: falseCount ?? 0 };
+}
+
+/** Batched lookup of trust scores for multiple reporters. */
+export async function getTrustScoresForReporters(
+  userIds: string[],
+): Promise<Map<string, ReporterTrustScore>> {
+  const unique = Array.from(new Set(userIds));
+  if (unique.length === 0) return new Map();
+  const results = await Promise.all(
+    unique.map(async (id) => [id, await getReporterTrustScore(id)] as const),
+  );
+  return new Map(results);
 }
 
 /**

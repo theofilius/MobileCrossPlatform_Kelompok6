@@ -31,6 +31,9 @@ export type DashboardReport = {
   photoUrl?: string;
   audioUrl?: string;
   priority: string;
+  userId: string | null;
+  markedFalseAt: Date | null;
+  markedFalseBy: string | null;
 };
 
 type ReportsContextType = {
@@ -86,6 +89,9 @@ function toDashboard(r: RemoteReport): DashboardReport {
     photoUrl: r.photoUri ?? undefined,
     audioUrl: r.audioUri ?? undefined,
     priority: r.priority,
+    userId: r.userId,
+    markedFalseAt: r.markedFalseAt,
+    markedFalseBy: r.markedFalseBy,
   };
 }
 

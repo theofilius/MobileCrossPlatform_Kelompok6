@@ -1,5 +1,6 @@
 import { AuthContext } from '@/context/AuthContext';
 import { useReports } from '@/context/ReportsContext';
+import { getTrustScoresForReporters, type ReporterTrustScore } from '../../services/reportService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -172,10 +173,11 @@ function ActiveSosCard({
   );
 }
 
-function ReportCard({ item, onAccept, onDetail, onChat }: any) {
+function ReportCard({ item, trust, onAccept, onDetail, onChat }: any) {
   const meta = TYPE_META[item.type] ?? TYPE_META.ambulance;
   const status = STATUS_META[item.status] ?? STATUS_META.pending;
   const isActive = ['accepted', 'ontheway', 'arrived'].includes(item.status);
+  const flagged = trust && trust.markedFalse > 0;
 
   return (
     <TouchableOpacity activeOpacity={0.94} onPress={() => onDetail(item)} style={styles.card}>
@@ -207,6 +209,14 @@ function ReportCard({ item, onAccept, onDetail, onChat }: any) {
             </View>
           </View>
           <Text style={styles.cardReporter} numberOfLines={1}>{item.userName}</Text>
+          {flagged && (
+            <View style={styles.warnChip}>
+              <Ionicons name="warning" size={10} color="#B91C1C" />
+              <Text style={styles.warnChipText}>
+                {trust.markedFalse} dari {trust.totalReports} laporan sebelumnya ditandai palsu
+              </Text>
+            </View>
+          )}
           <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
         </View>
       </View>
@@ -250,6 +260,7 @@ export default function DashboardScreen() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [activeSos, setActiveSos] = useState<SosEvent[]>([]);
   const [trustMap, setTrustMap] = useState<Map<string, UserTrustScore>>(new Map());
+  const [reporterTrustMap, setReporterTrustMap] = useState<Map<string, ReporterTrustScore>>(new Map());
 
   // SOS feed: initial fetch + realtime subscription. Re-fetch full list on
   // any change (cheap: typically < 10 open SOS at a time) so we don't have
@@ -290,6 +301,28 @@ export default function DashboardScreen() {
     })();
     return () => { cancelled = true; };
   }, [activeSos]);
+
+  // Reporter trust score batch lookup when reports change
+  useEffect(() => {
+    const userIds = reports
+      .map(r => r.userId)
+      .filter((id): id is string => !!id);
+
+    if (userIds.length === 0) {
+      setReporterTrustMap(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const map = await getTrustScoresForReporters(userIds);
+        if (!cancelled) setReporterTrustMap(map);
+      } catch (err) {
+        console.warn('[reports] trust score batch failed', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [reports]);
 
   const openSosDetail = (event: SosEvent) => {
     router.push({
@@ -465,6 +498,7 @@ export default function DashboardScreen() {
         renderItem={({ item }) => (
           <ReportCard
             item={item}
+            trust={reporterTrustMap.get(item.userId || '')}
             onAccept={handleAccept}
             onDetail={() => router.push({ pathname: '/(petugas)/detail' as any, params: { reportJson: JSON.stringify(item) } })}
             onChat={() => router.push({ pathname: '/(petugas)/chat' as any, params: { reportJson: JSON.stringify(item) } })}
@@ -680,4 +714,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   sosBtnSecondaryText: { color: '#DC2626', fontSize: 13, fontWeight: '700' },
+
+  warnChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  warnChipText: { fontSize: 10.5, fontWeight: '700', color: '#B91C1C' },
 });

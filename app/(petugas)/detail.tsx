@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -17,9 +17,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReports } from '@/context/ReportsContext';
 import { useDialog } from '../../components/aegis/Dialog';
+import { AuthContext } from '@/context/AuthContext';
+import {
+  markReportFalse,
+  unmarkReportFalse,
+  getReporterTrustScore,
+  type ReporterTrustScore,
+} from '../../services/reportService';
 
 const NAVY = '#003B71';
 const NAVY_DEEP = '#002952';
+const RED = '#DC2626';
 const TEXT = '#111827';
 const MUTED = '#6B7280';
 const SUB = '#9CA3AF';
@@ -61,13 +69,28 @@ export default function DetailScreen() {
   const report = JSON.parse(reportJson || '{}');
   const { updateStatus } = useReports();
   const dialog = useDialog();
+  const { user } = useContext(AuthContext);
 
   const [status, setStatus] = useState<string>(report.status);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
   const soundRef = useRef<AudioPlayer | null>(null);
 
-  useEffect(() => { setStatus(report.status); }, [reportJson]);
+  const [busy, setBusy] = useState(false);
+  const [trust, setTrust] = useState<ReporterTrustScore | null>(null);
+  const [markedFalseAt, setMarkedFalseAt] = useState<string | null>(report.markedFalseAt || null);
+
+  useEffect(() => {
+    setStatus(report.status);
+    setMarkedFalseAt(report.markedFalseAt || null);
+    if (report.userId) {
+      getReporterTrustScore(report.userId)
+        .then(t => setTrust(t))
+        .catch(err => console.warn('[detail] trust score failed', err));
+    } else {
+      setTrust(null);
+    }
+  }, [reportJson]);
 
   useEffect(() => {
     return () => { try { soundRef.current?.remove(); } catch { /* ignore */ } };
@@ -125,6 +148,43 @@ export default function DetailScreen() {
       return;
     }
     Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`).catch(() => null);
+  };
+
+  const handleToggleFalse = () => {
+    if (!user) return;
+    const isAlreadyFalse = !!markedFalseAt;
+    dialog.show({
+      type: 'warning',
+      title: isAlreadyFalse ? 'Batalkan Penandaan?' : 'Tandai Sebagai Palsu?',
+      body: isAlreadyFalse
+        ? 'Penandaan sebagai laporan palsu akan dihapus dari trust score pengguna ini.'
+        : 'Tindakan ini akan menurunkan trust score pelapor dan terlihat untuk petugas lain. Hanya gunakan jika laporan terbukti tidak benar.',
+      primaryText: isAlreadyFalse ? 'Batalkan' : 'Tandai Palsu',
+      secondaryText: 'Batal',
+      onPrimary: async () => {
+        setBusy(true);
+        try {
+          if (isAlreadyFalse) {
+            await unmarkReportFalse(report.id);
+            setMarkedFalseAt(null);
+          } else {
+            await markReportFalse(report.id, user.id);
+            setMarkedFalseAt(new Date().toISOString());
+          }
+          // Refresh trust score after flag change.
+          if (report.userId) {
+            try {
+              const t = await getReporterTrustScore(report.userId);
+              setTrust(t);
+            } catch {}
+          }
+        } catch (err: any) {
+          dialog.show({ type: 'error', title: 'Gagal', body: err?.message ?? 'Coba lagi.', primaryText: 'OK' });
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
   };
 
   const handlePlayAudio = async () => {
@@ -221,6 +281,8 @@ export default function DetailScreen() {
               {report.userPhone && report.userPhone !== '-' ? report.userPhone : 'Nomor belum tersedia'}
             </Text>
           </TouchableOpacity>
+
+          {trust && <TrustChip trust={trust} />}
 
           <View style={styles.divider} />
 
@@ -347,9 +409,66 @@ export default function DetailScreen() {
           })}
         </View>
 
+        {/* Moderation — only meaningful after the report is closed. */}
+        {(status === 'cancelled' || status === 'resolved') && (
+          <TouchableOpacity
+            style={[
+              styles.moderationBtn,
+              markedFalseAt && styles.moderationBtnActive,
+              busy && { opacity: 0.6 },
+            ]}
+            onPress={handleToggleFalse}
+            activeOpacity={0.85}
+            disabled={busy}
+          >
+            <Ionicons
+              name={markedFalseAt ? 'flag' : 'flag-outline'}
+              size={15}
+              color={markedFalseAt ? '#fff' : RED}
+            />
+            <Text
+              style={[
+                styles.moderationBtnText,
+                markedFalseAt && { color: '#fff' },
+              ]}
+            >
+              {markedFalseAt ? 'Ditandai Sebagai Palsu' : 'Tandai Sebagai Palsu'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: 32 }} />
       </ScrollView>
       <dialog.Dialog />
+    </View>
+  );
+}
+
+function TrustChip({ trust }: { trust: ReporterTrustScore }) {
+  if (trust.totalReports <= 1) {
+    return (
+      <View style={[styles.trustChip, styles.trustChipNew]}>
+        <Ionicons name="time-outline" size={11} color="#6B7280" />
+        <Text style={styles.trustChipText}>Akun baru</Text>
+      </View>
+    );
+  }
+  if (trust.markedFalse === 0) {
+    return (
+      <View style={[styles.trustChip, styles.trustChipClean]}>
+        <Ionicons name="shield-checkmark" size={11} color="#15803D" />
+        <Text style={[styles.trustChipText, { color: '#15803D' }]}>
+          {trust.totalReports} riwayat laporan · bersih
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.trustChip, styles.trustChipFlagged]}>
+      <Ionicons name="warning" size={11} color="#B91C1C" />
+      <Text style={[styles.trustChipText, { color: '#B91C1C' }]}>
+        {trust.markedFalse} dari {trust.totalReports} laporan ditandai palsu
+      </Text>
     </View>
   );
 }
@@ -440,4 +559,28 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   flowLabel:    { flex: 1, fontSize: 13, fontWeight: '600', color: '#374151' },
+
+  // ── Trust chip (under reporter name) ──
+  trustChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  trustChipNew:     { backgroundColor: '#F3F4F6' },
+  trustChipClean:   { backgroundColor: '#DCFCE7' },
+  trustChipFlagged: { backgroundColor: '#FEE2E2' },
+  trustChipText: { fontSize: 10.5, fontWeight: '700', color: '#6B7280', letterSpacing: 0.2 },
+
+  // ── Moderation button (Tandai Palsu) ──
+  moderationBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1.5, borderColor: RED, backgroundColor: '#FFF',
+    marginTop: 8,
+  },
+  moderationBtnActive: { backgroundColor: RED, borderColor: RED },
+  moderationBtnText: { color: RED, fontSize: 13, fontWeight: '700' },
 });
