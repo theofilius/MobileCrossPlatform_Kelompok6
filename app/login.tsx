@@ -3,7 +3,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { validateEmail } from '@/utils/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import React, { useContext, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,8 +22,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function LoginScreen() {
   const { signIn } = useContext(AuthContext);
   const { t, language, setLanguage } = useLanguage();
+  // Pre-fill email when navigated here from signup's "Masuk Sekarang" shortcut.
+  const params = useLocalSearchParams<{ email?: string }>();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

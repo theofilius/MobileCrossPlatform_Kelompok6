@@ -19,9 +19,12 @@ export type User = {
 };
 
 export type AuthOpResult = { ok: true } | { ok: false; error: string };
+// `code` lets the UI react specifically to known failure modes (e.g. show
+// a "Masuk Sekarang" shortcut when the email is already registered) without
+// resorting to string matching on the error message.
 export type SignUpResult =
   | { ok: true; needsEmailConfirmation: boolean }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: 'email_taken' };
 
 type AuthContextType = {
   user: User | null;
@@ -233,7 +236,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn('[auth] signUp error:', error.message);
         const msg = error.message.toLowerCase();
         if (msg.includes('already')) {
-          return { ok: false, error: 'Email sudah terdaftar. Silakan masuk dengan akun yang ada.' };
+          return { ok: false, code: 'email_taken', error: 'Email sudah terdaftar. Silakan masuk dengan akun yang ada.' };
         }
         if (msg.includes('password')) {
           return { ok: false, error: 'Kata sandi tidak memenuhi syarat. Minimal 6 karakter.' };
@@ -243,6 +246,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         return { ok: false, error: `Pendaftaran gagal: ${error.message}` };
       }
+
+      // Supabase security default: when "Confirm email" is ON, signing up with
+      // an email that's already registered does NOT return an error (so you
+      // can't probe whether an email exists). Instead it returns data.user
+      // with an empty `identities` array. Detect that case explicitly so the
+      // user doesn't get sent to the OTP screen for an OTP that will never
+      // arrive (because no new signup actually happened).
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { ok: false, code: 'email_taken', error: 'Email sudah terdaftar. Silakan masuk dengan akun yang ada.' };
+      }
+
       return { ok: true, needsEmailConfirmation: !data.session };
     } catch (e: any) {
       console.warn('[auth] signUp threw:', e?.message ?? e);

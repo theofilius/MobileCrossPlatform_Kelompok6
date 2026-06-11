@@ -31,6 +31,10 @@ export default function SignUpScreen() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Tracks whether the last signUp failure was because the email is already
+  // registered. When true, we render a "Masuk Sekarang" shortcut below the
+  // error so the user doesn't have to navigate to login manually.
+  const [emailTaken, setEmailTaken] = useState(false);
 
   const canSubmit =
     !submitting &&
@@ -43,6 +47,7 @@ export default function SignUpScreen() {
 
   const handleSubmit = async () => {
     setErrorMessage(null);
+    setEmailTaken(false);
 
     const nameRes = validateName(name);
     if (!nameRes.ok) { setErrorMessage(nameRes.error); return; }
@@ -72,6 +77,7 @@ export default function SignUpScreen() {
 
     if (!result.ok) {
       setErrorMessage(result.error);
+      if (result.code === 'email_taken') setEmailTaken(true);
       return;
     }
 
@@ -120,7 +126,7 @@ export default function SignUpScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={email}
-                onChangeText={(v) => { setEmail(v); setErrorMessage(null); }}
+                onChangeText={(v) => { setEmail(v); setErrorMessage(null); setEmailTaken(false); }}
                 editable={!submitting}
               />
               <TextInput
@@ -158,6 +164,17 @@ export default function SignUpScreen() {
                   <Ionicons name="alert-circle" size={16} color="#DC2626" />
                   <Text style={styles.errorText}>{errorMessage}</Text>
                 </View>
+              )}
+
+              {emailTaken && (
+                <TouchableOpacity
+                  style={styles.goLoginBtn}
+                  onPress={() => router.push({ pathname: '/login' as any, params: { email: email.trim().toLowerCase() } })}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="log-in-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.goLoginBtnText}>Masuk Sekarang</Text>
+                </TouchableOpacity>
               )}
 
               {/* UU ITE disclaimer — required to enable submit. Acts as both
@@ -241,6 +258,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   errorText: { flex: 1, fontSize: 13, color: '#991B1B', lineHeight: 18 },
+  goLoginBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#003B71',
+    borderRadius: 10,
+    height: 46,
+    marginBottom: 10,
+    shadowColor: '#003B71', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18, shadowRadius: 6, elevation: 3,
+  },
+  goLoginBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', letterSpacing: 0.3 },
   termsRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
     paddingVertical: 4, marginBottom: 10,
