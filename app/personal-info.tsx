@@ -50,20 +50,31 @@ export default function PersonalInfoScreen() {
 
   const handlePickPhoto = () => {
     if (uploadingPhoto) return;
+    // Same pattern as report-form's photo picker: surface denied permissions
+    // or driver errors via a dialog instead of failing silently.
+    const runPicker = async (kind: 'camera' | 'gallery') => {
+      const result = kind === 'camera' ? await capturePhoto() : await pickFromGallery();
+      if (result.ok) {
+        handlePickedPhoto(result.uri);
+        return;
+      }
+      if (result.reason === 'cancelled') return;
+      dialog.show({
+        type: result.reason === 'permission' ? 'warning' : 'error',
+        title: result.reason === 'permission' ? 'Izin diperlukan' : 'Gagal',
+        body: result.message ?? 'Tidak dapat mengambil foto.',
+        primaryText: 'OK',
+      });
+    };
+
     dialog.show({
       type: 'info',
       title: t('pi_change_photo'),
       body: t('pi_photo_source'),
       primaryText: t('pi_photo_camera'),
       secondaryText: t('pi_photo_gallery'),
-      onPrimary: async () => {
-        const uri = await capturePhoto();
-        if (uri) handlePickedPhoto(uri);
-      },
-      onSecondary: async () => {
-        const uri = await pickFromGallery();
-        if (uri) handlePickedPhoto(uri);
-      }
+      onPrimary: () => runPicker('camera'),
+      onSecondary: () => runPicker('gallery'),
     });
   };
 

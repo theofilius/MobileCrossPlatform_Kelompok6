@@ -132,14 +132,32 @@ export default function ReportFormScreen() {
   const typeLabel = t(TYPE_KEY[type]);
 
   const handlePhoto = () => {
+    // Wraps the picker hook so a denied permission or driver error surfaces
+    // as a dialog instead of silently doing nothing — which is what the
+    // previous code did and the symptom users reported as "gabisa upload".
+    const runPicker = async (kind: 'camera' | 'gallery') => {
+      const result = kind === 'camera' ? await capturePhoto() : await pickFromGallery();
+      if (result.ok) {
+        setPhotoUri(result.uri);
+        return;
+      }
+      if (result.reason === 'cancelled') return; // user dismissed, nothing to say
+      dialog.show({
+        type: result.reason === 'permission' ? 'warning' : 'error',
+        title: result.reason === 'permission' ? 'Izin diperlukan' : 'Gagal',
+        body: result.message ?? 'Tidak dapat mengambil foto.',
+        primaryText: 'OK',
+      });
+    };
+
     dialog.show({
       type: 'info',
       title: t('report_photo_title'),
       body: t('report_photo_source'),
       primaryText: t('report_camera'),
       secondaryText: t('report_gallery'),
-      onPrimary: async () => { const uri = await capturePhoto(); if (uri) setPhotoUri(uri); },
-      onSecondary: async () => { const uri = await pickFromGallery(); if (uri) setPhotoUri(uri); },
+      onPrimary: () => runPicker('camera'),
+      onSecondary: () => runPicker('gallery'),
     });
   };
 

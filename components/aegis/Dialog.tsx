@@ -118,16 +118,27 @@ export function useDialog() {
   const show = (cfg: DialogConfig) => setConfig(cfg);
   const hide = () => setConfig(null);
 
+  // iOS only allows one Modal-presented controller at a time. If a caller's
+  // onPrimary/onSecondary tries to launch ImagePicker (or any other native
+  // modal) immediately, the dialog's <Modal> is technically still mounted
+  // and the picker silently fails to present. Defer the callback by one
+  // tick so React commits the setConfig(null) state update and the dialog's
+  // Modal is fully torn down before the callback runs.
+  const deferCallback = (cb?: () => void) => {
+    if (!cb) return;
+    setTimeout(cb, 50);
+  };
+
   const wrappedOnPrimary = () => {
     const cb = config?.onPrimary;
     if (config?.autoClose !== false) hide();
-    cb?.();
+    deferCallback(cb);
   };
 
   const wrappedOnSecondary = () => {
     const cb = config?.onSecondary;
     hide();
-    cb?.();
+    deferCallback(cb);
   };
 
   const DialogComponent = () => (
