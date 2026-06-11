@@ -31,10 +31,12 @@ export default function SignUpScreen() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // Tracks whether the last signUp failure was because the email is already
-  // registered. When true, we render a "Masuk Sekarang" shortcut below the
-  // error so the user doesn't have to navigate to login manually.
-  const [emailTaken, setEmailTaken] = useState(false);
+  // Tracks whether the last signUp failure was because the email OR phone
+  // is already registered. When set, we render a "Masuk Sekarang" shortcut
+  // under the error so the user doesn't have to navigate manually. We track
+  // which field collided so the login redirect can pre-fill the email when
+  // applicable (we don't pre-fill from phone since login is email-based).
+  const [takenKind, setTakenKind] = useState<'email' | 'phone' | null>(null);
 
   const canSubmit =
     !submitting &&
@@ -47,7 +49,7 @@ export default function SignUpScreen() {
 
   const handleSubmit = async () => {
     setErrorMessage(null);
-    setEmailTaken(false);
+    setTakenKind(null);
 
     const nameRes = validateName(name);
     if (!nameRes.ok) { setErrorMessage(nameRes.error); return; }
@@ -77,7 +79,8 @@ export default function SignUpScreen() {
 
     if (!result.ok) {
       setErrorMessage(result.error);
-      if (result.code === 'email_taken') setEmailTaken(true);
+      if (result.code === 'email_taken') setTakenKind('email');
+      else if (result.code === 'phone_taken') setTakenKind('phone');
       return;
     }
 
@@ -126,7 +129,7 @@ export default function SignUpScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={email}
-                onChangeText={(v) => { setEmail(v); setErrorMessage(null); setEmailTaken(false); }}
+                onChangeText={(v) => { setEmail(v); setErrorMessage(null); setTakenKind(null); }}
                 editable={!submitting}
               />
               <TextInput
@@ -135,7 +138,7 @@ export default function SignUpScreen() {
                 placeholderTextColor="#8D8E8E"
                 keyboardType="phone-pad"
                 value={phone}
-                onChangeText={(v) => { setPhone(v); setErrorMessage(null); }}
+                onChangeText={(v) => { setPhone(v); setErrorMessage(null); setTakenKind(null); }}
                 editable={!submitting}
               />
               <TextInput
@@ -166,10 +169,15 @@ export default function SignUpScreen() {
                 </View>
               )}
 
-              {emailTaken && (
+              {takenKind && (
                 <TouchableOpacity
                   style={styles.goLoginBtn}
-                  onPress={() => router.push({ pathname: '/login' as any, params: { email: email.trim().toLowerCase() } })}
+                  onPress={() => router.push({
+                    pathname: '/login' as any,
+                    // Pre-fill email only when the conflict was on email; for
+                    // a phone collision we don't know which email maps to it.
+                    params: takenKind === 'email' ? { email: email.trim().toLowerCase() } : undefined,
+                  })}
                   activeOpacity={0.85}
                 >
                   <Ionicons name="log-in-outline" size={16} color="#FFFFFF" />

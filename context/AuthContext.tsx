@@ -24,7 +24,7 @@ export type AuthOpResult = { ok: true } | { ok: false; error: string };
 // resorting to string matching on the error message.
 export type SignUpResult =
   | { ok: true; needsEmailConfirmation: boolean }
-  | { ok: false; error: string; code?: 'email_taken' };
+  | { ok: false; error: string; code?: 'email_taken' | 'phone_taken' };
 
 type AuthContextType = {
   user: User | null;
@@ -218,6 +218,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }: { email: string; password: string; name: string; phone: string }): Promise<SignUpResult> => {
     try {
       console.log('[auth] signUp start:', email);
+
+      // Pre-flight: reject if the phone is already registered to another
+      // account. Cheaper and clearer than letting supabase.auth.signUp
+      // succeed and then having handle_new_user fail with a constraint
+      // error half-way through. The phone arrives already normalised to
+      // E.164 by validatePhone(), and so do all stored profile rows.
+      try {
+        const { data: phoneTaken, error: rpcError } = await supabase.rpc(
+          'phone_exists',
+          { phone_to_check: phone.trim() },
+        );
+        if (rpcError) {
+          // RPC missing or RLS misconfigured — don't block signup, just log.
+          // The fallback is that supabase.auth.signUp will still run; if a
+          // DB-level constraint exists later, it'll surface there.
+          console.warn('[auth] phone_exists RPC failed:', rpcError.message);
+        } else if (phoneTaken === true) {
+          return {
+            ok: false,
+            code: 'phone_taken',
+            error: 'Nomor telepon sudah terdaftar. Silakan masuk dengan akun yang ada.',
+          };
+        }
+      } catch (e: any) {
+        console.warn('[auth] phone_exists threw:', e?.message ?? e);
+      }
+
       const startedAt = Date.now();
       const { data, error } = await withTimeout(
         supabase.auth.signUp({
