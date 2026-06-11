@@ -1,7 +1,6 @@
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useEffect, useState } from 'react';
 import { supabase } from '@/services/supabase';
-import { signInWithGoogle as oauthSignInWithGoogle, type OAuthResult } from '@/services/oauthService';
 import { initContactsForUser, teardownContacts } from '@/services/contactsService';
 import { initNotificationsForUser, teardownNotifications } from '@/services/notificationsService';
 
@@ -36,8 +35,6 @@ type AuthContextType = {
   verifyEmailOtp: (email: string, token: string) => Promise<AuthOpResult>;
   // Resend the signup OTP (used on the OTP screen).
   resendSignupOtp: (email: string) => Promise<AuthOpResult>;
-  // Google OAuth via system browser.
-  signInWithGoogle: () => Promise<OAuthResult>;
   signOut: () => Promise<void>;
   updateUser: (data: Partial<Omit<User, 'id'>>) => Promise<void>;
 };
@@ -64,7 +61,6 @@ export const AuthContext = createContext<AuthContextType>({
   signUp: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
   verifyEmailOtp: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
   resendSignupOtp: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
-  signInWithGoogle: async () => ({ ok: false, error: GENERIC_AUTH_ERROR }),
   signOut: async () => {},
   updateUser: async () => {},
 });
@@ -292,8 +288,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { ok: true };
   };
 
-  const signInWithGoogle = async (): Promise<OAuthResult> => oauthSignInWithGoogle();
-
   const signOut = async (): Promise<void> => {
     // Always force the local session to null, even if the server call fails
     // (network down, token already invalid, flowType mismatch, etc.).
@@ -349,7 +343,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signUp,
         verifyEmailOtp,
         resendSignupOtp,
-        signInWithGoogle,
         signOut,
         updateUser,
       }}

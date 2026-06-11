@@ -1,7 +1,7 @@
 import { AuthContext } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { validateEmail } from '@/utils/auth';
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import React, { useContext, useState } from 'react';
@@ -20,17 +20,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
-  const { signIn, signInWithGoogle } = useContext(AuthContext);
+  const { signIn } = useContext(AuthContext);
   const { t, language, setLanguage } = useLanguage();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canSubmit =
-    !submitting && !googleLoading &&
+    !submitting &&
     email.trim().length > 0 &&
     password.length > 0;
 
@@ -50,14 +49,6 @@ export default function LoginScreen() {
       return;
     }
     // onAuthStateChange + AuthGate routes us to home.
-  };
-
-  const handleGoogle = async () => {
-    setErrorMessage(null);
-    setGoogleLoading(true);
-    const result = await signInWithGoogle();
-    setGoogleLoading(false);
-    if (!result.ok && !result.canceled) setErrorMessage(result.error);
   };
 
   const toggleLang = () => setLanguage(language === 'id' ? 'en' : 'id');
@@ -99,7 +90,7 @@ export default function LoginScreen() {
                 autoCorrect={false}
                 value={email}
                 onChangeText={(v) => { setEmail(v); setErrorMessage(null); }}
-                editable={!submitting && !googleLoading}
+                editable={!submitting}
               />
               <TextInput
                 style={styles.input}
@@ -109,7 +100,7 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 value={password}
                 onChangeText={(v) => { setPassword(v); setErrorMessage(null); }}
-                editable={!submitting && !googleLoading}
+                editable={!submitting}
               />
 
               {errorMessage && (
@@ -132,35 +123,10 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <Link href="/signup" asChild>
-                <TouchableOpacity style={styles.createAccountButton} disabled={submitting || googleLoading}>
+                <TouchableOpacity style={styles.createAccountButton} disabled={submitting}>
                   <Text style={styles.createAccountText}>{t('login_create')}</Text>
                 </TouchableOpacity>
               </Link>
-            </View>
-
-            <View style={styles.socialSection}>
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>{t('login_or')}</Text>
-                <View style={styles.divider} />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.googleButton, (submitting || googleLoading) && styles.googleButtonDisabled]}
-                onPress={handleGoogle}
-                disabled={submitting || googleLoading}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator color="#003B71" />
-                ) : (
-                  <>
-                    <AntDesign name="google" size={20} color="#003B71" />
-                    <Text style={styles.googleButtonText}>
-                      {language === 'id' ? 'Lanjutkan dengan Google' : 'Continue with Google'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
 
           </ScrollView>
@@ -257,21 +223,4 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   createAccountText: { color: '#003B71', fontSize: 15, fontWeight: '700' },
-  socialSection: { marginTop: 'auto' },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  divider: { flex: 1, height: 1, backgroundColor: '#D1D5DB' },
-  dividerText: { marginHorizontal: 14, color: '#003B71', fontSize: 13, fontWeight: '600' },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    height: 52,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#003B71',
-    backgroundColor: '#FFFFFF',
-  },
-  googleButtonDisabled: { opacity: 0.6 },
-  googleButtonText: { color: '#003B71', fontSize: 15, fontWeight: '700' },
 });

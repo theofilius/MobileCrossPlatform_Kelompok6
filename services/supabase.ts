@@ -25,13 +25,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     // detectSessionInUrl is for browser apps; in RN we manually exchange
     // the OAuth `?code=` we receive on the deep-link redirect.
     detectSessionInUrl: false,
-    // PKCE is mandatory for OAuth flows in native apps — the server returns
-    // a one-time `code` we exchange via exchangeCodeForSession.
-    // Do NOT change this to 'implicit' — services/oauthService.ts depends on
-    // PKCE (parses `code` from redirect and calls exchangeCodeForSession).
-    // Switching to implicit returns tokens in the URL hash instead, which
-    // also breaks session signOut and causes "tiba-tiba login" + "gabisa
-    // keluar" issues.
+    // PKCE is the recommended flow for native apps. Even though we don't
+    // currently expose any OAuth providers (Google OAuth was removed),
+    // PKCE also affects how email/password sessions are issued. Switching
+    // to 'implicit' has been known to break signOut and cause auto-login
+    // glitches, so leave this alone.
     flowType: 'pkce',
   },
 });

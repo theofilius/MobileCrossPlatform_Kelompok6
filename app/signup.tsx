@@ -1,4 +1,4 @@
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
 import React, { useContext, useState } from 'react';
@@ -20,7 +20,7 @@ import { validateEmail, validateName, validatePassword, validatePhone } from '@/
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { signUp, signInWithGoogle } = useContext(AuthContext);
+  const { signUp } = useContext(AuthContext);
   const { t, language } = useLanguage();
 
   const [name, setName] = useState('');
@@ -30,11 +30,10 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canSubmit =
-    !submitting && !googleLoading &&
+    !submitting &&
     name.trim().length > 0 &&
     email.trim().length > 0 &&
     phone.trim().length > 0 &&
@@ -86,14 +85,6 @@ export default function SignUpScreen() {
     // Confirmation disabled in Supabase → session is already live → AuthGate routes.
   };
 
-  const handleGoogle = async () => {
-    setErrorMessage(null);
-    setGoogleLoading(true);
-    const result = await signInWithGoogle();
-    setGoogleLoading(false);
-    if (!result.ok && !result.canceled) setErrorMessage(result.error);
-  };
-
   return (
     <LinearGradient colors={['#D2E7FA', '#FFFFFF']} style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -119,7 +110,7 @@ export default function SignUpScreen() {
                 placeholderTextColor="#8D8E8E"
                 value={name}
                 onChangeText={(v) => { setName(v); setErrorMessage(null); }}
-                editable={!submitting && !googleLoading}
+                editable={!submitting}
               />
               <TextInput
                 style={styles.input}
@@ -130,7 +121,7 @@ export default function SignUpScreen() {
                 autoCorrect={false}
                 value={email}
                 onChangeText={(v) => { setEmail(v); setErrorMessage(null); }}
-                editable={!submitting && !googleLoading}
+                editable={!submitting}
               />
               <TextInput
                 style={styles.input}
@@ -139,7 +130,7 @@ export default function SignUpScreen() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={(v) => { setPhone(v); setErrorMessage(null); }}
-                editable={!submitting && !googleLoading}
+                editable={!submitting}
               />
               <TextInput
                 style={styles.input}
@@ -149,7 +140,7 @@ export default function SignUpScreen() {
                 autoCapitalize="none"
                 value={password}
                 onChangeText={(v) => { setPassword(v); setErrorMessage(null); }}
-                editable={!submitting && !googleLoading}
+                editable={!submitting}
               />
               <TextInput
                 style={styles.input}
@@ -159,7 +150,7 @@ export default function SignUpScreen() {
                 autoCapitalize="none"
                 value={confirmPassword}
                 onChangeText={(v) => { setConfirmPassword(v); setErrorMessage(null); }}
-                editable={!submitting && !googleLoading}
+                editable={!submitting}
               />
 
               {errorMessage && (
@@ -200,35 +191,10 @@ export default function SignUpScreen() {
               </TouchableOpacity>
 
               <Link href="/login" asChild>
-                <TouchableOpacity style={styles.loginLinkButton} disabled={submitting || googleLoading}>
+                <TouchableOpacity style={styles.loginLinkButton} disabled={submitting}>
                   <Text style={styles.loginLinkText}>{t('signup_have_account')} {t('signup_login')}</Text>
                 </TouchableOpacity>
               </Link>
-            </View>
-
-            <View style={styles.socialSection}>
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>{t('login_or')}</Text>
-                <View style={styles.divider} />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.googleButton, (submitting || googleLoading) && styles.googleButtonDisabled]}
-                onPress={handleGoogle}
-                disabled={submitting || googleLoading}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator color="#003B71" />
-                ) : (
-                  <>
-                    <AntDesign name="google" size={20} color="#003B71" />
-                    <Text style={styles.googleButtonText}>
-                      {language === 'id' ? 'Lanjutkan dengan Google' : 'Continue with Google'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
 
           </ScrollView>
@@ -306,21 +272,4 @@ const styles = StyleSheet.create({
   nextButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   loginLinkButton: { height: 48, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
   loginLinkText: { color: '#003B71', fontSize: 14, fontWeight: '600' },
-  socialSection: { marginTop: 'auto' },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  divider: { flex: 1, height: 1, backgroundColor: '#D1D5DB' },
-  dividerText: { marginHorizontal: 14, color: '#6B7280', fontSize: 13, fontWeight: '500' },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    height: 52,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#003B71',
-    backgroundColor: '#FFFFFF',
-  },
-  googleButtonDisabled: { opacity: 0.6 },
-  googleButtonText: { color: '#003B71', fontSize: 15, fontWeight: '700' },
 });
