@@ -16,7 +16,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SOSProvider } from '../context/SOSContext';
 
 // Public routes — accessible without a session
-const PUBLIC_ROUTES = new Set(['index', 'login', 'signup', 'otp', 'loading', 'forgot-password', 'reset-password']);
+const PUBLIC_ROUTES = new Set(['index', 'login', 'signup', 'otp', 'loading']);
 // Routes restricted to role=petugas|admin. role=user must be redirected out.
 const PETUGAS_GROUP = '(petugas)';
 
@@ -135,8 +135,6 @@ export default function RootLayout() {
                       <Stack.Screen name="login" options={{ headerShown: false }} />
                       <Stack.Screen name="signup" options={{ headerShown: false }} />
                       <Stack.Screen name="otp" options={{ headerShown: false }} />
-                      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-                      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
                       <Stack.Screen name="location-permission" options={{ headerShown: false }} />
                       <Stack.Screen name="personal-info" options={{ headerShown: false }} />
                       <Stack.Screen name="emergency-active" options={{ headerShown: false, presentation: 'fullScreenModal' }} />

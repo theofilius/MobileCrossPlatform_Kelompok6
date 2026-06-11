@@ -3,7 +3,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { validateEmail } from '@/utils/auth';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import React, { useContext, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,7 +20,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
-  const router = useRouter();
   const { signIn, signInWithGoogle } = useContext(AuthContext);
   const { t, language, setLanguage } = useLanguage();
 
@@ -112,15 +111,6 @@ export default function LoginScreen() {
                 onChangeText={(v) => { setPassword(v); setErrorMessage(null); }}
                 editable={!submitting && !googleLoading}
               />
-
-              <TouchableOpacity 
-                style={{ alignSelf: 'flex-end', marginTop: 8, marginBottom: 16 }}
-                onPress={() => router.push('/forgot-password' as any)}
-              >
-                <Text style={{ color: '#003B71', fontSize: 14, fontWeight: '600' }}>
-                  Lupa Kata Sandi?
-                </Text>
-              </TouchableOpacity>
 
               {errorMessage && (
                 <View style={styles.errorBox}>
